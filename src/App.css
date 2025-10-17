@@ -1,0 +1,96 @@
+/* Felma UI — Guaranteed Center Layout */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  font-family: "Aptos", "Inter", sans-serif;
+  color: #212121;
+}
+
+#root {
+  display: flex;
+  justify-content: center;  /* centers horizontally */
+  align-items: flex-start;  /* start from top, not middle */
+  padding-top: 20px;
+  width: 100%;
+}
+
+.container {
+  width: 100%;
+  max-width: 480px;
+  padding: 20px;
+}
+
+h2 {
+  color: #2CD0D7;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: #f7f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.linkcard {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.form input,
+.form textarea {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  outline: none;
+}
+
+.primary {
+  background: #2CD0D7;
+  border: none;
+  color: #00343C;
+  font-weight: 700;
+  padding: 12px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.back {
+  background: transparent;
+  border: none;
+  color: #2CD0D7;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+}
+
+.saveMsg {
+  margin-top: 8px;
+  font-weight: 600;
+}
