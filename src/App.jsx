@@ -1,13 +1,28 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, Link, useParams, useNavigate } from "react-router-dom";
+import { Routes, Route, Link, NavLink, useParams, useNavigate } from "react-router-dom";
 import "./App.css";
 
-const API = "https://felma-backend.onrender.com";
+// Use cloud API if present, else local
+const API = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
 function Layout({ children }) {
+  const linkStyle = ({ isActive }) => ({
+    textDecoration: "none",
+    color: isActive ? "#0b6" : "#055",
+    fontWeight: isActive ? 700 : 500,
+  });
+
   return (
     <div style={{ fontFamily: "Arial, sans-serif", background: "#fafafa", minHeight: "100vh", padding: 20 }}>
-      <div style={{ maxWidth: 800, margin: "0 auto" }}>{children}</div>
+      <div style={{ maxWidth: 800, margin: "0 auto" }}>
+        {/* Simple header */}
+        <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
+          <NavLink to="/" style={{ textDecoration: "none", color: "#0b6", fontWeight: 800 }}>Felma</NavLink>
+          <NavLink to="/" style={linkStyle}>Home</NavLink>
+          <NavLink to="/stories" style={linkStyle}>Stories</NavLink>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -31,11 +46,52 @@ function ListPage() {
   }, []);
 
   if (loading) return <Layout>Loading…</Layout>;
-  if (!items.length) return <Layout>No items found.</Layout>;
+  if (!items.length) return <Layout>No notes yet.</Layout>;
 
   return (
     <Layout>
-      <h1>Felma — Open Items</h1>
+      <h1>Felma — Open Notes</h1>
+      {items.map((it) => (
+        <div key={it.id} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, marginBottom: 12, background: "#fff" }}>
+          <div style={{ fontWeight: 600 }}>{it.title}</div>
+          <div style={{ fontSize: 13, color: "#666" }}>{new Date(it.created_at).toLocaleString()}</div>
+          <div style={{ marginTop: 4 }}>
+            Tier: {it.action_tier ?? "—"} {it.leader_to_unblock ? "🚩" : ""} | Rank: {it.priority_rank ?? "—"}
+          </div>
+          <Link to={`/item/${it.id}`}>
+            <button style={{ marginTop: 8 }}>Open</button>
+          </Link>
+        </div>
+      ))}
+    </Layout>
+  );
+}
+
+function StoriesPage() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/list`);
+        const data = await res.json();
+        // For now, show everything. Later we can filter by status/story fields.
+        setItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Stories fetch error", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  if (loading) return <Layout>Loading…</Layout>;
+
+  return (
+    <Layout>
+      <h1>Stories your team has noticed and started shaping.</h1>
+      {items.length === 0 && <div>No stories yet — check back soon.</div>}
       {items.map((it) => (
         <div key={it.id} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, marginBottom: 12, background: "#fff" }}>
           <div style={{ fontWeight: 600 }}>{it.title}</div>
@@ -147,6 +203,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<ListPage />} />
+      <Route path="/stories" element={<StoriesPage />} />
       <Route path="/item/:id" element={<ItemPage />} />
     </Routes>
   );
