@@ -24,10 +24,14 @@ function NewNoteForm({ onCreated }) {
     setMsg("");
     try {
       const res = await fetch(`${API}/api/items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: text, item_type: "frustration" }),
-      });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    transcript: text,
+    item_type: "frustration",
+    user_id: null
+  }),
+});
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Create failed");
       setText("");
