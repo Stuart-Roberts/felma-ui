@@ -1,8 +1,23 @@
-// src/App.jsx — Felma UI with transcript/content fallbacks + rank/tier badges
+// src/App.jsx — Felma UI with brand colors + rank/tier badges + sorting
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const BACKEND_URL = "https://felma-backend.onrender.com";
+
+// Brand palette
+const BRAND = {
+  blue: "#005E87",       // header, primary
+  yellow: "#FDC732",     // tier pill bg
+  berry: "#D42956",      // frustration badge bg
+  lightBlue: "#2CD0D7",  // subtle focus ring/hover (optional)
+  textDark: "#212121",   // main text on light
+  white: "#ffffff",
+  panelBg: "#0f172a",    // dark slate for header card
+  panelStroke: "#0b1224",
+  cardBg: "#ffffff",
+  cardStroke: "#e5e7eb",
+  meta: "#6b7280",
+};
 
 export default function App() {
   const [items, setItems] = useState([]);
@@ -10,6 +25,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
+  const [sortKey, setSortKey] = useState("created_desc"); // created_desc | rank_desc | rank_asc
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -56,10 +72,32 @@ export default function App() {
     }
   }
 
+  const sorted = useMemo(() => {
+    const toNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const withRank = items.map(it => ({
+      ...it,
+      _rank: toNum(it.rank ?? it.priority_rank ?? it.score),
+      _created: it.created_at ? new Date(it.created_at).getTime() : 0,
+    }));
+
+    if (sortKey === "rank_desc") {
+      return [...withRank].sort((a,b) => (b._rank ?? -Infinity) - (a._rank ?? -Infinity));
+    }
+    if (sortKey === "rank_asc") {
+      return [...withRank].sort((a,b) => (a._rank ?? Infinity) - (b._rank ?? Infinity));
+    }
+    // created_desc (default)
+    return [...withRank].sort((a,b) => (b._created) - (a._created));
+  }, [items, sortKey]);
+
   return (
     <div style={styles.page}>
-      <div style={styles.card}>
+      <div style={styles.headerCard}>
         <h1 style={styles.title}>Felma — Open Notes</h1>
+
         <form onSubmit={handleSubmit} style={styles.form}>
           <label style={styles.label}>New</label>
           <textarea
@@ -75,18 +113,32 @@ export default function App() {
             </button>
             {ok && <span style={styles.ok}>{ok}</span>}
             {error && <span style={styles.err}>✕ {error}</span>}
+            <div style={{ flex: 1 }} />
+            <div style={styles.sortWrap}>
+              <label htmlFor="sort" style={styles.sortLabel}>Sort</label>
+              <select
+                id="sort"
+                value={sortKey}
+                onChange={(e)=>setSortKey(e.target.value)}
+                style={styles.select}
+              >
+                <option value="created_desc">Newest first</option>
+                <option value="rank_desc">Rank (high → low)</option>
+                <option value="rank_asc">Rank (low → high)</option>
+              </select>
+            </div>
           </div>
         </form>
       </div>
 
       <div style={styles.listWrap}>
-        {items.map((it) => (
+        {sorted.map((it) => (
           <NoteCard
             key={it.id ?? `${(it.content||it.transcript||"").slice(0,12)}-${it.created_at ?? Math.random()}`}
             item={it}
           />
         ))}
-        {items.length === 0 && (
+        {sorted.length === 0 && (
           <div style={styles.empty}>No notes yet — add one above.</div>
         )}
       </div>
@@ -95,7 +147,7 @@ export default function App() {
 }
 
 function NoteCard({ item }) {
-  // Prefer new field; fall back to legacy fields so old notes always show
+  // Prefer new field; fall back to legacy fields
   const text =
     item.content ??
     stripPrefix(item.transcript) ??
@@ -108,16 +160,25 @@ function NoteCard({ item }) {
   const org = item.org_id ?? item.org_slug ?? "—";
   const team = item.team_id ?? "—";
 
-  // badges: use new rank/tier, else legacy priority_rank/action_tier
+  // badges: new or legacy
   const rank = safeNumber(item.rank ?? item.priority_rank ?? item.score);
-  const tier = item.tier ?? item.action_tier ?? item.band ?? item.bucket ?? item.urgency ?? null;
+  const rawTier = (item.tier ?? item.action_tier ?? item.band ?? item.bucket ?? item.urgency ?? "").toString().trim();
+  const tierEmoji = (rawTier.match(/^[^\w\s]/)?.[0]) || ""; // keep leading emoji if present
+  const tierText  = rawTier.replace(/^[^\w\s]+\s*/, "");   // remove that emoji from text
 
   return (
     <div style={styles.noteCard}>
       <div style={styles.noteHeader}>
-        <span style={styles.badge}>{item.item_type === "idea" ? "Idea" : "Frustration"}</span>
-        {tier && <span style={{...styles.pill, background:"#eef2ff", color:"#3730a3"}}>{tier}</span>}
-        {rank !== null && <span style={{...styles.pill, background:"#ecfdf5", color:"#065f46"}}>Rank: {rank}</span>}
+        <span style={styles.badgeFrustration}>{item.item_type === "idea" ? "Idea" : "Frustration"}</span>
+        {rawTier && (
+          <span style={styles.pillTier}>
+            {tierEmoji && <span style={{marginRight:6}}>{tierEmoji}</span>}
+            {tierText || rawTier}
+          </span>
+        )}
+        {rank !== null && (
+          <span style={styles.pillRank}>Rank: {rank}</span>
+        )}
       </div>
 
       <div style={styles.headline}>{headline}</div>
@@ -129,9 +190,10 @@ function NoteCard({ item }) {
   );
 }
 
+/* ---------- helpers ---------- */
+
 function stripPrefix(s) {
   if (!s) return null;
-  // Some legacy rows start with "Frustration: ..." — remove that label
   return String(s).replace(/^(Frustration|Idea)\s*:\s*/i, "").trim();
 }
 
@@ -153,23 +215,74 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+/* ---------- styles ---------- */
+
+const focusRing = `0 0 0 3px ${hexWithAlpha(BRAND.lightBlue, 0.4)}`;
+
 const styles = {
-  page: { maxWidth: 840, margin: "24px auto", padding: "0 16px", fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif" },
-  card: { background: "#111827", color:"#fff", borderRadius: 12, padding: 16 },
-  title: { margin: "4px 0 12px 0", fontSize: 22, fontWeight: 600 },
+  page: { maxWidth: 840, margin: "24px auto", padding: "0 16px", fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif", color: BRAND.textDark },
+
+  headerCard: { background: BRAND.blue, color: BRAND.white, borderRadius: 12, padding: 16, border: `1px solid ${BRAND.panelStroke}` },
+  title: { margin: "4px 0 12px 0", fontSize: 22, fontWeight: 700 },
+
   form: { display: "flex", flexDirection: "column", gap: 8 },
-  label: { fontSize: 13, color: "#d1d5db" },
-  textarea: { width: "100%", borderRadius: 8, border: "1px solid #374151", background:"#1f2937", color:"#fff", padding: 10, fontSize: 15, outline: "none" },
+  label: { fontSize: 13, color: hexWithAlpha(BRAND.white, 0.8) },
+
+  textarea: {
+    width: "100%", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)",
+    background: "rgba(255,255,255,0.08)", color: BRAND.white,
+    padding: 10, fontSize: 15, outline: "none",
+  },
+
   row: { display: "flex", alignItems: "center", gap: 12, marginTop: 6 },
-  button: { background: "#10b981", color: "white", border: "none", padding: "8px 14px", borderRadius: 8, cursor: "pointer" },
+
+  button: {
+    background: BRAND.white, color: BRAND.blue, border: "none",
+    padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700,
+    boxShadow: "none",
+  },
+
   ok: { color: "#34d399", fontSize: 14 },
   err: { color: "#fecaca", background:"#7f1d1d", padding:"2px 8px", borderRadius:6, fontSize: 13 },
+
+  sortWrap: { display: "flex", alignItems: "center", gap: 6 },
+  sortLabel: { fontSize: 12, color: hexWithAlpha(BRAND.white, 0.85) },
+  select: {
+    borderRadius: 8, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.25)",
+    background: "rgba(255,255,255,0.12)", color: BRAND.white, outline: "none",
+  },
+
   listWrap: { marginTop: 16, display: "flex", flexDirection: "column", gap: 12 },
-  noteCard: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 },
+
+  noteCard: { background: BRAND.cardBg, border: `1px solid ${BRAND.cardStroke}`, borderRadius: 12, padding: 12 },
+
   noteHeader: { display: "flex", gap: 8, alignItems:"center", marginBottom: 6 },
-  badge: { background:"#fee2e2", color:"#991b1b", borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:600 },
-  pill: { borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:600 },
-  headline: { fontSize: 15, fontWeight: 600, marginBottom: 6 },
-  meta: { fontSize: 12, color: "#6b7280" },
-  empty: { color: "#6b7280", fontSize: 14, padding: 12, textAlign: "center" },
+
+  // Badges / pills
+  badgeFrustration: {
+    background: BRAND.berry, color: BRAND.white,
+    borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:700,
+  },
+  pillTier: {
+    background: BRAND.yellow, color: BRAND.textDark,
+    borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:700,
+  },
+  pillRank: {
+    background: "#ecfdf5", color: "#065f46",
+    borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:700,
+  },
+
+  headline: { fontSize: 15, fontWeight: 700, color: BRAND.textDark, marginBottom: 6 },
+  meta: { fontSize: 12, color: BRAND.meta },
+  empty: { color: BRAND.meta, fontSize: 14, padding: 12, textAlign: "center" },
 };
+
+// small utility to add alpha to hex colors
+function hexWithAlpha(hex, alpha) {
+  const c = hex.replace("#", "");
+  const bigint = parseInt(c, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
