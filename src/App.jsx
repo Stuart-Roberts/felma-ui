@@ -1,288 +1,464 @@
-// src/App.jsx — Felma UI with brand colors + rank/tier badges + sorting
-
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-const BACKEND_URL = "https://felma-backend.onrender.com";
+// ========================
+// 1) SUPABASE CLIENT
+//    Paste YOUR values:
+// ========================
+const SUPABASE_URL = "https://ryverzivsojfgtynsqux.supabase.co"; // <-- PASTE YOUR VALUES
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dmVyeml2c29qZmd0eW5zcXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyNzA3MTcsImV4cCI6MjA3NTg0NjcxN30.a7FxSQgHHcuvixFakIw9ObQI7_hBSYp8IaJFD1Ma7Uw";        // <-- PASTE YOUR VALUES
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Brand palette
-const BRAND = {
-  blue: "#005E87",       // header, primary
-  yellow: "#FDC732",     // tier pill bg
-  berry: "#D42956",      // frustration badge bg
-  lightBlue: "#2CD0D7",  // subtle focus ring/hover (optional)
-  textDark: "#212121",   // main text on light
-  white: "#ffffff",
-  panelBg: "#0f172a",    // dark slate for header card
-  panelStroke: "#0b1224",
-  cardBg: "#ffffff",
-  cardStroke: "#e5e7eb",
-  meta: "#6b7280",
+// ========================
+// THEME (your palette)
+// ========================
+const C = {
+  blueDark: "#005E87",
+  yellow: "#FDC732",
+  berry: "#D42956",    // used only to highlight *current user* originator
+  blueLight: "#2CD0D7",
+  textDark: "#212121",
+  card: "#FFFFFF",
+  bg: "#0F1418",       // very dark background
+  border: "rgba(255,255,255,0.12)",
 };
 
+const API_BASE = "https://felma-backend.onrender.com";
+
+// Simple date formatter
+const fmt = (iso) => {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString();
+  } catch {
+    return iso ?? "";
+  }
+};
+
+// Make a short display name from email
+const displayFromEmail = (email) =>
+  email ? email.split("@")[0] : "anonymous";
+
+// ========================
+// APP
+// ========================
 export default function App() {
   const [items, setItems] = useState([]);
-  const [inputValue, setInputValue] = useState("");
+  const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [ok, setOk] = useState("");
-  const [sortKey, setSortKey] = useState("created_desc"); // created_desc | rank_desc | rank_asc
+  const [text, setText] = useState("");
+  const [notice, setNotice] = useState("");
 
-  useEffect(() => { fetchItems(); }, []);
+  // auth
+  const [user, setUser] = useState(null);
+  const userDisplay = useMemo(
+    () => (user?.user_metadata?.full_name || displayFromEmail(user?.email || "")),
+    [user]
+  );
 
-  async function fetchItems() {
-    setError(""); setOk("");
+  // ------------------------
+  // Auth bootstrap & session
+  // ------------------------
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+
+      // Listen for login/logout
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session2) => {
+        setUser(session2?.user || null);
+      });
+      return () => subscription.unsubscribe();
+    })();
+  }, []);
+
+  // ------------------------
+  // Fetch list
+  // ------------------------
+  async function loadList() {
+    setLoadingList(true);
+    setNotice("");
     try {
-      const res = await fetch(`${BACKEND_URL}/api/list`);
-      if (!res.ok) throw new Error(`Load failed (${res.status})`);
+      const res = await fetch(`${API_BASE}/api/list`, { credentials: "omit" });
+      if (!res.ok) throw new Error(`List failed: ${res.status}`);
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
-      setError("Could not load notes: " + e.message);
+      setNotice("Could not load notes: " + e.message);
+    } finally {
+      setLoadingList(false);
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError(""); setOk("");
-    const content = (inputValue || "").trim();
-    if (!content) { setError("Please type a note before saving."); return; }
+  useEffect(() => {
+    loadList();
+  }, []);
 
-    const payload = { content, item_type: "frustration", user_id: null };
+  // ------------------------
+  // Save new note
+  // ------------------------
+  async function onSave() {
+    const content = text.trim();
+    if (!content) return;
 
+    setSaving(true);
+    setNotice("");
     try {
-      setSaving(true);
-      const res = await fetch(`${BACKEND_URL}/api/items`, {
+      // We send `user_id` and `originator_name` along.
+      // If the backend already accepts these (recommended), they’ll be stored.
+      // If not, the backend will simply ignore the extra keys.
+      const body = {
+        content,
+        item_type: "frustration",
+        user_id: user?.id ?? null,
+        originator_name: userDisplay || null,
+        item_title: content, // title mirrors content for now
+      };
+
+      const res = await fetch(`${API_BASE}/api/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
+
       if (!res.ok) {
-        let msg = await res.text();
-        try { msg = JSON.parse(msg).error || msg; } catch {}
+        const msg = await safeError(res);
         throw new Error(msg || `Save failed (${res.status})`);
       }
-      const created = await res.json();
-      setItems(prev => [created, ...prev]);
-      setInputValue("");
-      setOk("Saved ✔︎");
+
+      setText("");
+      await loadList();
+      setNotice("Saved ✓");
+      setTimeout(() => setNotice(""), 1500);
     } catch (e) {
-      setError("Save failed: " + e.message);
+      setNotice(e.message || "Save failed");
     } finally {
       setSaving(false);
     }
   }
 
-  const sorted = useMemo(() => {
-    const toNum = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    };
-    const withRank = items.map(it => ({
-      ...it,
-      _rank: toNum(it.rank ?? it.priority_rank ?? it.score),
-      _created: it.created_at ? new Date(it.created_at).getTime() : 0,
-    }));
+  // ------------------------
+  // Magic link sign-in
+  // ------------------------
+  async function sendMagicLink(e) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const email = String(form.get("email") || "").trim();
+    if (!email) return;
 
-    if (sortKey === "rank_desc") {
-      return [...withRank].sort((a,b) => (b._rank ?? -Infinity) - (a._rank ?? -Infinity));
+    setNotice("Sending magic link…");
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: "https://felma-ui.onrender.com",
+      },
+    });
+    if (error) {
+      setNotice("Sign-in failed: " + error.message);
+    } else {
+      setNotice("Check your email for the sign-in link.");
     }
-    if (sortKey === "rank_asc") {
-      return [...withRank].sort((a,b) => (a._rank ?? Infinity) - (b._rank ?? Infinity));
-    }
-    // created_desc (default)
-    return [...withRank].sort((a,b) => (b._created) - (a._created));
-  }, [items, sortKey]);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setNotice("Signed out");
+    setTimeout(() => setNotice(""), 1200);
+  }
 
   return (
     <div style={styles.page}>
-      <div style={styles.headerCard}>
-        <h1 style={styles.title}>Felma — Open Notes</h1>
+      <style>{globalStyles}</style>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>New</label>
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Type a quick note…"
-            rows={3}
-            style={styles.textarea}
-          />
-          <div style={styles.row}>
-            <button type="submit" disabled={saving} style={styles.button}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-            {ok && <span style={styles.ok}>{ok}</span>}
-            {error && <span style={styles.err}>✕ {error}</span>}
-            <div style={{ flex: 1 }} />
-            <div style={styles.sortWrap}>
-              <label htmlFor="sort" style={styles.sortLabel}>Sort</label>
-              <select
-                id="sort"
-                value={sortKey}
-                onChange={(e)=>setSortKey(e.target.value)}
-                style={styles.select}
-              >
-                <option value="created_desc">Newest first</option>
-                <option value="rank_desc">Rank (high → low)</option>
-                <option value="rank_asc">Rank (low → high)</option>
-              </select>
+      {/* Header */}
+      <div style={styles.header}>
+        <div style={styles.title}>Felma — Open Notes</div>
+
+        <div style={styles.authBox}>
+          {user ? (
+            <div style={styles.authRow}>
+              <span style={styles.meTag}>Signed in:</span>
+              <span style={styles.meName}>{userDisplay}</span>
+              <button style={styles.authBtn} onClick={signOut}>Sign out</button>
             </div>
-          </div>
-        </form>
+          ) : (
+            <form style={styles.authRow} onSubmit={sendMagicLink}>
+              <input
+                name="email"
+                type="email"
+                placeholder="you@company.com"
+                style={styles.emailInput}
+                required
+              />
+              <button style={styles.authBtn} type="submit">Email me a link</button>
+            </form>
+          )}
+        </div>
       </div>
 
-      <div style={styles.listWrap}>
-        {sorted.map((it) => (
-          <NoteCard
-            key={it.id ?? `${(it.content||it.transcript||"").slice(0,12)}-${it.created_at ?? Math.random()}`}
-            item={it}
-          />
-        ))}
-        {sorted.length === 0 && (
-          <div style={styles.empty}>No notes yet — add one above.</div>
+      {/* Composer */}
+      <div style={styles.card}>
+        <div style={styles.sectionLabel}>New</div>
+        <textarea
+          placeholder="Type a quick note…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          style={styles.textarea}
+        />
+        <div style={styles.row}>
+          <button
+            style={styles.saveBtn}
+            disabled={saving || !text.trim()}
+            onClick={onSave}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          {notice && <span style={styles.notice}>{notice}</span>}
+        </div>
+      </div>
+
+      {/* List */}
+      <div style={{ marginTop: 16 }}>
+        {loadingList ? (
+          <div style={styles.loading}>Loading…</div>
+        ) : (
+          items.map((it) => (
+            <ItemCard
+              key={it.id}
+              it={it}
+              me={userDisplay}
+            />
+          ))
         )}
       </div>
     </div>
   );
 }
 
-function NoteCard({ item }) {
-  // Prefer new field; fall back to legacy fields
-  const text =
-    item.content ??
-    stripPrefix(item.transcript) ??
-    item.message ?? item.text ?? item.title ??
-    item.description ?? item.details ?? item.orig_text ?? item.sms_text ??
-    "(untitled)";
-
-  const headline = firstSentence(text);
-  const when = formatWhen(item.created_at);
-  const org = item.org_id ?? item.org_slug ?? "—";
-  const team = item.team_id ?? "—";
-
-  // badges: new or legacy
-  const rank = safeNumber(item.rank ?? item.priority_rank ?? item.score);
-  const rawTier = (item.tier ?? item.action_tier ?? item.band ?? item.bucket ?? item.urgency ?? "").toString().trim();
-  const tierEmoji = (rawTier.match(/^[^\w\s]/)?.[0]) || ""; // keep leading emoji if present
-  const tierText  = rawTier.replace(/^[^\w\s]+\s*/, "");   // remove that emoji from text
+// ------------------------
+// Item Card
+// ------------------------
+function ItemCard({ it, me }) {
+  const isMine =
+    !!me &&
+    (eq(it?.originator_name, me) ||
+      eq(it?.user_id, undefined) ? false : false); // safe default
+  // we still highlight by originator_name when available
+  const mine = !!me && eq(it?.originator_name, me);
 
   return (
-    <div style={styles.noteCard}>
-      <div style={styles.noteHeader}>
-        <span style={styles.badgeFrustration}>{item.item_type === "idea" ? "Idea" : "Frustration"}</span>
-        {rawTier && (
-          <span style={styles.pillTier}>
-            {tierEmoji && <span style={{marginRight:6}}>{tierEmoji}</span>}
-            {tierText || rawTier}
-          </span>
+    <div style={styles.item}>
+      {/* Top badges */}
+      <div style={styles.badgeRow}>
+        <span style={styles.pillType}>{cap(it?.item_type || "frustration")}</span>
+        {it?.priority_rank != null && (
+          <span style={styles.pillMeta}>rank: {it.priority_rank}</span>
         )}
-        {rank !== null && (
-          <span style={styles.pillRank}>Rank: {rank}</span>
-        )}
+        {it?.tier && <span style={styles.pillMeta}>tier: {it.tier}</span>}
       </div>
 
-      <div style={styles.headline}>{headline}</div>
+      {/* Title / content */}
+      <div style={styles.titleRow}>
+        <span style={styles.itemTitle}>
+          {it?.item_title?.trim?.() || it?.content?.trim?.() || "(untitled)"}
+        </span>
+      </div>
 
-      <div style={styles.meta}>
-        {when} · org: {org} · team: {team}
+      {/* Meta line */}
+      <div style={styles.metaRow}>
+        <span style={styles.metaPill}>{fmt(it?.created_at)}</span>
+        <span style={styles.metaPill}>org: {it?.org_slug || "demo"}</span>
+        <span style={styles.metaPill}>team: {it?.team_id ? String(it.team_id) : "—"}</span>
+        {/* Originator */}
+        <span
+          style={{
+            ...styles.metaPill,
+            ...(mine ? styles.originatorMine : styles.originatorOther),
+          }}
+          title={it?.originator_name || ""}
+        >
+          by {it?.originator_name || "—"}
+        </span>
       </div>
     </div>
   );
 }
 
-/* ---------- helpers ---------- */
-
-function stripPrefix(s) {
-  if (!s) return null;
-  return String(s).replace(/^(Frustration|Idea)\s*:\s*/i, "").trim();
+// ------------------------
+// Utils & styles
+// ------------------------
+function eq(a, b) {
+  if (a == null || b == null) return false;
+  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 }
 
-function firstSentence(text) {
-  if (!text) return "(untitled)";
-  const t = String(text).trim();
-  const m = t.match(/[.!?]\s/);
-  const end = m ? m.index + 1 : t.length;
-  return t.slice(0, end).trim() || "(untitled)";
+function cap(s) {
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function formatWhen(iso) {
-  if (!iso) return "—";
-  try { return new Date(iso).toLocaleString(); } catch { return String(iso); }
+async function safeError(res) {
+  try {
+    const t = await res.text();
+    try {
+      const j = JSON.parse(t);
+      return j?.error || j?.message || t;
+    } catch {
+      return t;
+    }
+  } catch {
+    return "";
+  }
 }
-
-function safeNumber(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-/* ---------- styles ---------- */
-
-const focusRing = `0 0 0 3px ${hexWithAlpha(BRAND.lightBlue, 0.4)}`;
 
 const styles = {
-  page: { maxWidth: 840, margin: "24px auto", padding: "0 16px", fontFamily: "system-ui,-apple-system,Segoe UI,Roboto,sans-serif", color: BRAND.textDark },
+  page: {
+    minHeight: "100vh",
+    background: C.bg,
+    color: "#FFF",
+    padding: 16,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  header: {
+    width: 680,
+    maxWidth: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 700,
+  },
+  authBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  authRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  emailInput: {
+    height: 34,
+    borderRadius: 8,
+    padding: "0 10px",
+    border: `1px solid ${C.border}`,
+    background: "transparent",
+    color: "#fff",
+  },
+  authBtn: {
+    background: C.blueDark,
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "8px 12px",
+    cursor: "pointer",
+  },
+  meTag: { opacity: 0.7 },
+  meName: { fontWeight: 600 },
 
-  headerCard: { background: BRAND.blue, color: BRAND.white, borderRadius: 12, padding: 16, border: `1px solid ${BRAND.panelStroke}` },
-  title: { margin: "4px 0 12px 0", fontSize: 22, fontWeight: 700 },
-
-  form: { display: "flex", flexDirection: "column", gap: 8 },
-  label: { fontSize: 13, color: hexWithAlpha(BRAND.white, 0.8) },
-
+  card: {
+    width: 680,
+    maxWidth: "100%",
+    background: C.blueDark,
+    borderRadius: 14,
+    padding: 12,
+    border: `1px solid ${C.border}`,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    opacity: 0.8,
+    marginBottom: 6,
+  },
   textarea: {
-    width: "100%", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)",
-    background: "rgba(255,255,255,0.08)", color: BRAND.white,
-    padding: 10, fontSize: 15, outline: "none",
+    width: "100%",
+    minHeight: 64,
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.15)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    padding: 10,
+    outline: "none",
   },
-
-  row: { display: "flex", alignItems: "center", gap: 12, marginTop: 6 },
-
-  button: {
-    background: BRAND.white, color: BRAND.blue, border: "none",
-    padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontWeight: 700,
-    boxShadow: "none",
+  row: { display: "flex", alignItems: "center", gap: 10, marginTop: 8 },
+  saveBtn: {
+    background: "#1b9e59",
+    color: "#fff",
+    border: 0,
+    padding: "8px 12px",
+    borderRadius: 8,
+    cursor: "pointer",
   },
+  notice: { fontSize: 12, opacity: 0.85 },
 
-  ok: { color: "#34d399", fontSize: 14 },
-  err: { color: "#fecaca", background:"#7f1d1d", padding:"2px 8px", borderRadius:6, fontSize: 13 },
+  loading: { opacity: 0.8, marginTop: 8 },
 
-  sortWrap: { display: "flex", alignItems: "center", gap: 6 },
-  sortLabel: { fontSize: 12, color: hexWithAlpha(BRAND.white, 0.85) },
-  select: {
-    borderRadius: 8, padding: "6px 10px", border: "1px solid rgba(255,255,255,0.25)",
-    background: "rgba(255,255,255,0.12)", color: BRAND.white, outline: "none",
+  item: {
+    width: 680,
+    maxWidth: "100%",
+    background: C.card,
+    color: C.textDark,
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 10,
+    border: `1px solid ${C.border}`,
   },
-
-  listWrap: { marginTop: 16, display: "flex", flexDirection: "column", gap: 12 },
-
-  noteCard: { background: BRAND.cardBg, border: `1px solid ${BRAND.cardStroke}`, borderRadius: 12, padding: 12 },
-
-  noteHeader: { display: "flex", gap: 8, alignItems:"center", marginBottom: 6 },
-
-  // Badges / pills
-  badgeFrustration: {
-    background: BRAND.berry, color: BRAND.white,
-    borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:700,
+  badgeRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+    flexWrap: "wrap",
   },
-  pillTier: {
-    background: BRAND.yellow, color: BRAND.textDark,
-    borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:700,
+  pillType: {
+    background: C.blueDark,
+    color: "#fff",
+    borderRadius: 6,
+    padding: "2px 8px",
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "capitalize",
   },
-  pillRank: {
-    background: "#ecfdf5", color: "#065f46",
-    borderRadius: 999, padding:"2px 8px", fontSize:12, fontWeight:700,
+  pillMeta: {
+    background: "rgba(0,0,0,0.06)",
+    borderRadius: 6,
+    padding: "2px 8px",
+    fontSize: 11,
   },
-
-  headline: { fontSize: 15, fontWeight: 700, color: BRAND.textDark, marginBottom: 6 },
-  meta: { fontSize: 12, color: BRAND.meta },
-  empty: { color: BRAND.meta, fontSize: 14, padding: 12, textAlign: "center" },
+  titleRow: { marginBottom: 6 },
+  itemTitle: {
+    color: C.yellow,
+    fontWeight: 700,
+  },
+  metaRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  metaPill: {
+    background: "rgba(0,0,0,0.06)",
+    borderRadius: 6,
+    padding: "2px 8px",
+    fontSize: 11,
+  },
+  originatorMine: {
+    background: C.berry,
+    color: "#fff",
+  },
+  originatorOther: {
+    background: "rgba(0,0,0,0.06)",
+  },
 };
 
-// small utility to add alpha to hex colors
-function hexWithAlpha(hex, alpha) {
-  const c = hex.replace("#", "");
-  const bigint = parseInt(c, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+const globalStyles = `
+  * { box-sizing: border-box; }
+  body, html, #root { margin: 0; height: 100%; }
+`;
