@@ -1,68 +1,110 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* src/index.css — Felma palette + base styles */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+:root{
+  --blue-dark:#005E87;
+  --blue-light:#2CD0D7;
+  --yellow:#FDC732;
+  --berry:#D42956; /* only for (you) badge */
+  --ink:#212121;
+  --paper:#101418;
+  --card:#14202A;
+  --border:#22303A;
+  --muted:#8FA6B3;
+  --white:#FFFFFF;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--white);
+  font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,"Apple Color Emoji","Segoe UI Emoji";
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+a{color:inherit}
+
+.container{
+  max-width:750px;
+  margin:24px auto 64px;
+  padding:0 16px;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.header{
+  background:var(--blue-dark);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px 14px 8px;
+  box-shadow:0 2px 10px rgba(0,0,0,.25);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.h-row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.h-title{font-weight:700}
+.h-auth{display:flex;gap:8px;align-items:center}
+.h-auth input{
+  width:220px;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:rgba(0,0,0,.2);
+  color:var(--white);
 }
+.btn{
+  appearance:none;border:0;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer;
+  background:var(--yellow);color:var(--ink);
+}
+.btn:disabled{opacity:.6;cursor:default}
+
+.new textarea{
+  width:100%;min-height:56px;resize:vertical;border-radius:10px;border:1px solid var(--border);
+  background:rgba(0,0,0,.2);padding:10px;color:var(--white);
+}
+.new .save{margin-top:8px}
+
+.list{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px 12px;
+}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* pills */
+.pill{
+  font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  background:#0E171F;color:var(--white);
+}
+.p-frus{background:#0E2A3B}
+
+.title{
+  color:var(--yellow);font-weight:700;margin:6px 2px 0;
+}
+
+.meta{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;color:var(--muted)}
+.meta .small-pill{
+  font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid var(--border);background:#0E171F;color:var(--muted);
+}
+
+/* (you) highlight */
+.origin{
+  display:inline-flex;gap:6px;align-items:center
+}
+.origin .me{
+  background:var(--berry);
+  color:var(--white);
+  font-weight:800;
+  padding:1px 6px;border-radius:999px;border:1px solid transparent;
+}
+
+/* sort switch */
+.sort{
+  display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--muted)
+}
+.sort select{
+  background:#0E171F;border:1px solid var(--border);color:var(--white);padding:6px 8px;border-radius:8px
+}
+
+/* small helpers */
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+.faint{opacity:.75}
