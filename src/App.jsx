@@ -1,464 +1,366 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ========================
-// 1) SUPABASE CLIENT
-//    Paste YOUR values:
-// ========================
+/* ------------------------------------------------------------------
+   KEEP YOUR KEYS: Replace the next line with your TWO real lines
+   (do not change their values)
+------------------------------------------------------------------- */
 const SUPABASE_URL = "https://ryverzivsojfgtynsqux.supabase.co"; // <-- PASTE YOUR VALUES
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dmVyeml2c29qZmd0eW5zcXV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyNzA3MTcsImV4cCI6MjA3NTg0NjcxN30.a7FxSQgHHcuvixFakIw9ObQI7_hBSYp8IaJFD1Ma7Uw";        // <-- PASTE YOUR VALUES
+
+/* After you paste your two lines above, this will work: */
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ========================
-// THEME (your palette)
-// ========================
-const C = {
-  blueDark: "#005E87",
-  yellow: "#FDC732",
-  berry: "#D42956",    // used only to highlight *current user* originator
-  blueLight: "#2CD0D7",
-  textDark: "#212121",
-  card: "#FFFFFF",
-  bg: "#0F1418",       // very dark background
-  border: "rgba(255,255,255,0.12)",
-};
+/* Backend API (Render) */
+const API = "https://felma-backend.onrender.com";
 
-const API_BASE = "https://felma-backend.onrender.com";
+/* Simple router helper */
+function matchDetailPath() {
+  const m = location.pathname.match(/^\/item\/(\d+|[a-f0-9-]+)$/i);
+  return m ? m[1] : null;
+}
 
-// Simple date formatter
-const fmt = (iso) => {
+function isMe(name) {
   try {
-    const d = new Date(iso);
-    return d.toLocaleString();
+    const me = localStorage.getItem("felma_me") || "";
+    return me.trim().toLowerCase() === String(name || "").trim().toLowerCase();
   } catch {
-    return iso ?? "";
+    return false;
   }
-};
+}
 
-// Make a short display name from email
-const displayFromEmail = (email) =>
-  email ? email.split("@")[0] : "anonymous";
-
-// ========================
-// APP
-// ========================
-export default function App() {
-  const [items, setItems] = useState([]);
-  const [loadingList, setLoadingList] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [text, setText] = useState("");
-  const [notice, setNotice] = useState("");
-
-  // auth
-  const [user, setUser] = useState(null);
-  const userDisplay = useMemo(
-    () => (user?.user_metadata?.full_name || displayFromEmail(user?.email || "")),
-    [user]
+function FactorSlider({ label, value, setValue }) {
+  return (
+    <div className="factor">
+      <div className="row">
+        <label>{label}</label>
+        <span className="value">{value}</span>
+      </div>
+      <input
+        type="range"
+        min="1"
+        max="10"
+        value={value}
+        onChange={(e) => setValue(Number(e.target.value))}
+      />
+      <div className="ticks">
+        <span>1</span>
+        <span>5</span>
+        <span>10</span>
+      </div>
+    </div>
   );
+}
 
-  // ------------------------
-  // Auth bootstrap & session
-  // ------------------------
-  useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+function ItemDetail({ id, org }) {
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
-      // Listen for login/logout
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session2) => {
-        setUser(session2?.user || null);
-      });
-      return () => subscription.unsubscribe();
-    })();
-  }, []);
-
-  // ------------------------
-  // Fetch list
-  // ------------------------
-  async function loadList() {
-    setLoadingList(true);
-    setNotice("");
-    try {
-      const res = await fetch(`${API_BASE}/api/list`, { credentials: "omit" });
-      if (!res.ok) throw new Error(`List failed: ${res.status}`);
-      const data = await res.json();
-      setItems(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setNotice("Could not load notes: " + e.message);
-    } finally {
-      setLoadingList(false);
-    }
-  }
+  // factor sliders, 1..10
+  const [impact, setImpact] = useState(5);
+  const [energy, setEnergy] = useState(5);
+  const [frequency, setFrequency] = useState(5);
+  const [ease, setEase] = useState(5);
 
   useEffect(() => {
-    loadList();
-  }, []);
-
-  // ------------------------
-  // Save new note
-  // ------------------------
-  async function onSave() {
-    const content = text.trim();
-    if (!content) return;
-
-    setSaving(true);
-    setNotice("");
-    try {
-      // We send `user_id` and `originator_name` along.
-      // If the backend already accepts these (recommended), they’ll be stored.
-      // If not, the backend will simply ignore the extra keys.
-      const body = {
-        content,
-        item_type: "frustration",
-        user_id: user?.id ?? null,
-        originator_name: userDisplay || null,
-        item_title: content, // title mirrors content for now
-      };
-
-      const res = await fetch(`${API_BASE}/api/items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const msg = await safeError(res);
-        throw new Error(msg || `Save failed (${res.status})`);
+    let abort = false;
+    async function run() {
+      setLoading(true);
+      setErr("");
+      try {
+        const r = await fetch(
+          `${API}/api/item/${id}${org ? `?org=${encodeURIComponent(org)}` : ""}`
+        );
+        if (!r.ok) throw new Error(`Load failed: ${r.status}`);
+        const data = await r.json();
+        if (abort) return;
+        setItem(data);
+        if (data.impact) setImpact(Number(data.impact));
+        if (data.energy) setEnergy(Number(data.energy));
+        if (data.frequency) setFrequency(Number(data.frequency));
+        if (data.ease) setEase(Number(data.ease));
+      } catch (e) {
+        if (!abort) setErr(String(e.message || e));
+      } finally {
+        if (!abort) setLoading(false);
       }
+    }
+    run();
+    return () => {
+      abort = true;
+    };
+  }, [id, org]);
 
-      setText("");
-      await loadList();
-      setNotice("Saved ✓");
-      setTimeout(() => setNotice(""), 1500);
+  const quickRank = useMemo(() => {
+    const vals = [impact, energy, frequency, ease].map(Number);
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return Math.round(avg);
+  }, [impact, energy, frequency, ease]);
+
+  async function saveFactors() {
+    setSaving(true);
+    setErr("");
+    try {
+      const body = {
+        impact: Number(impact),
+        energy: Number(energy),
+        frequency: Number(frequency),
+        ease: Number(ease),
+      };
+      const r = await fetch(
+        `${API}/items/${id}/factors${org ? `?org=${encodeURIComponent(org)}` : ""}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!r.ok) throw new Error(`Save failed: ${r.status}`);
+      const updated = await r.json();
+      setItem(updated);
     } catch (e) {
-      setNotice(e.message || "Save failed");
+      setErr(String(e.message || e));
     } finally {
       setSaving(false);
     }
   }
 
-  // ------------------------
-  // Magic link sign-in
-  // ------------------------
-  async function sendMagicLink(e) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const email = String(form.get("email") || "").trim();
-    if (!email) return;
+  if (loading) return <div className="card">Loading…</div>;
+  if (err) return <div className="card error">Error: {err}</div>;
+  if (!item) return <div className="card">Not found.</div>;
 
-    setNotice("Sending magic link…");
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: "https://felma-ui.onrender.com",
-      },
-    });
-    if (error) {
-      setNotice("Sign-in failed: " + error.message);
-    } else {
-      setNotice("Check your email for the sign-in link.");
+  return (
+    <div className="detail">
+      <div className="crumbs">
+        <a href={`/?org=${encodeURIComponent(org || "")}`}>← Back</a>
+      </div>
+
+      <h2 className="title">{item.item_title || item.content || "Untitled"}</h2>
+      <p className="meta">
+        <span className={`pill type ${item.item_type || "note"}`}>
+          {(item.item_type || "note").toUpperCase()}
+        </span>
+        {item.originator_name ? (
+          <span className="origin">
+            {" "}
+            by{" "}
+            <strong className={isMe(item.originator_name) ? "me" : ""}>
+              {item.originator_name}
+            </strong>
+          </span>
+        ) : null}
+      </p>
+
+      <div className="grid2">
+        <FactorSlider label="Impact" value={impact} setValue={setImpact} />
+        <FactorSlider label="Energy" value={energy} setValue={setEnergy} />
+        <FactorSlider label="Frequency" value={frequency} setValue={setFrequency} />
+        <FactorSlider label="Ease" value={ease} setValue={setEase} />
+      </div>
+
+      <div className="rankbar">
+        <span>Quick rank (avg):</span>
+        <strong className="rank">{quickRank}</strong>
+      </div>
+
+      <button className="btn primary" onClick={saveFactors} disabled={saving}>
+        {saving ? "Saving…" : "Save ranking"}
+      </button>
+
+      <div className="readback">
+        <div className="badgewrap">
+          {item.priority_rank ? (
+            <span className="badge rank">Rank {item.priority_rank}</span>
+          ) : null}
+          {item.action_tier ? (
+            <span className="badge tier">Tier {String(item.action_tier).toUpperCase()}</span>
+          ) : null}
+          {item.leader_to_unblock ? (
+            <span className="badge leader">Leader to Unblock</span>
+          ) : null}
+        </div>
+        <p className="hint">Badges reflect server truth after save.</p>
+      </div>
+    </div>
+  );
+}
+
+function Shell({ children, me, setMe, org, onHome }) {
+  return (
+    <div className="wrap">
+      <header className="mast">
+        <div className="brand" onClick={onHome}>
+          <span className="logo">Felma</span>
+          <span className="muted">{org ? `· ${org}` : ""}</span>
+        </div>
+        <div className="whoami">
+          <label>Who am I?</label>
+          <input
+            value={me}
+            onChange={(e) => setMe(e.target.value)}
+            placeholder="Your name (for 'my items' highlight)"
+          />
+        </div>
+      </header>
+      <main>{children}</main>
+      <footer className="foot">
+        <span>Felma · pilot</span>
+      </footer>
+    </div>
+  );
+}
+
+export default function App() {
+  const params = new URLSearchParams(window.location.search);
+  const org = params.get("org") || "";
+  const [me, setMe] = useState(localStorage.getItem("felma_me") || "");
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [view, setView] = useState(() => {
+    const id = matchDetailPath();
+    return id ? { kind: "detail", id } : { kind: "list" };
+  });
+
+  useEffect(() => {
+    localStorage.setItem("felma_me", me || "");
+  }, [me]);
+
+  useEffect(() => {
+    if (view.kind !== "list") return;
+    let abort = false;
+    async function run() {
+      setLoading(true);
+      setErr("");
+      try {
+        const url = new URL(`${API}/api/list`);
+        if (org) url.searchParams.set("org", org);
+        const r = await fetch(url.toString());
+        if (!r.ok) throw new Error(`Load failed: ${r.status}`);
+        const data = await r.json();
+        if (!abort) setItems(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (!abort) setErr(String(e.message || e));
+      } finally {
+        if (!abort) setLoading(false);
+      }
     }
-  }
+    run();
+    return () => {
+      abort = true;
+    };
+  }, [org, view.kind]);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    setNotice("Signed out");
-    setTimeout(() => setNotice(""), 1200);
+  // sort options
+  const [sort, setSort] = useState("rank-desc");
+  const sorted = useMemo(() => {
+    const copy = [...items];
+    if (sort === "rank-desc")
+      copy.sort((a, b) => (b.priority_rank || 0) - (a.priority_rank || 0));
+    else if (sort === "newest")
+      copy.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    else if (sort === "leader")
+      copy.sort(
+        (a, b) => (b.leader_to_unblock ? 1 : 0) - (a.leader_to_unblock ? 1 : 0)
+      );
+    return copy;
+  }, [items, sort]);
+
+  if (view.kind === "detail") {
+    return (
+      <Shell
+        me={me}
+        setMe={setMe}
+        org={org}
+        onHome={() => {
+          history.replaceState(null, "", `/?org=${encodeURIComponent(org)}`);
+          setView({ kind: "list" });
+        }}
+      >
+        <ItemDetail id={view.id} org={org} />
+      </Shell>
+    );
   }
 
   return (
-    <div style={styles.page}>
-      <style>{globalStyles}</style>
-
-      {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.title}>Felma — Open Notes</div>
-
-        <div style={styles.authBox}>
-          {user ? (
-            <div style={styles.authRow}>
-              <span style={styles.meTag}>Signed in:</span>
-              <span style={styles.meName}>{userDisplay}</span>
-              <button style={styles.authBtn} onClick={signOut}>Sign out</button>
-            </div>
-          ) : (
-            <form style={styles.authRow} onSubmit={sendMagicLink}>
-              <input
-                name="email"
-                type="email"
-                placeholder="you@company.com"
-                style={styles.emailInput}
-                required
-              />
-              <button style={styles.authBtn} type="submit">Email me a link</button>
-            </form>
-          )}
+    <Shell me={me} setMe={setMe} org={org}>
+      <div className="toolbar">
+        <div className="left">
+          <label>Sort</label>
+          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="rank-desc">Rank (high → low)</option>
+            <option value="leader">Leader to Unblock</option>
+            <option value="newest">Newest</option>
+          </select>
+        </div>
+        <div className="right">
+          <a className="btn ghost" href={`/new?org=${encodeURIComponent(org)}`}>
+            + New
+          </a>
         </div>
       </div>
 
-      {/* Composer */}
-      <div style={styles.card}>
-        <div style={styles.sectionLabel}>New</div>
-        <textarea
-          placeholder="Type a quick note…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          style={styles.textarea}
-        />
-        <div style={styles.row}>
-          <button
-            style={styles.saveBtn}
-            disabled={saving || !text.trim()}
-            onClick={onSave}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          {notice && <span style={styles.notice}>{notice}</span>}
-        </div>
-      </div>
-
-      {/* List */}
-      <div style={{ marginTop: 16 }}>
-        {loadingList ? (
-          <div style={styles.loading}>Loading…</div>
-        ) : (
-          items.map((it) => (
-            <ItemCard
+      {loading ? (
+        <div className="card">Loading…</div>
+      ) : err ? (
+        <div className="card error">Error: {err}</div>
+      ) : sorted.length === 0 ? (
+        <div className="empty">No items yet.</div>
+      ) : (
+        <div className="grid">
+          {sorted.map((it) => (
+            <div
               key={it.id}
-              it={it}
-              me={userDisplay}
-            />
-          ))
-        )}
-      </div>
-    </div>
+              className="card item"
+              onClick={() => {
+                history.pushState(
+                  null,
+                  "",
+                  `/item/${it.id}?org=${encodeURIComponent(org)}`
+                );
+                setView({ kind: "detail", id: String(it.id) });
+              }}
+            >
+              <div className="row between">
+                <span className={`pill type ${it.item_type || "note"}`}>
+                  {String(it.item_type || "").toUpperCase()}
+                </span>
+                <div className="badgewrap">
+                  {it.priority_rank ? (
+                    <span className="badge rank">Rank {it.priority_rank}</span>
+                  ) : null}
+                  {it.action_tier ? (
+                    <span className="badge tier">
+                      Tier {String(it.action_tier).toUpperCase()}
+                    </span>
+                  ) : null}
+                  {it.leader_to_unblock ? (
+                    <span className="badge leader">Leader to Unblock</span>
+                  ) : null}
+                </div>
+              </div>
+              <h3 className="cardtitle">
+                {it.item_title || it.content || "Untitled"}
+              </h3>
+              <p className="meta">
+                {it.originator_name ? (
+                  <>
+                    by{" "}
+                    <strong className={isMe(it.originator_name) ? "me" : ""}>
+                      {it.originator_name}
+                    </strong>
+                  </>
+                ) : null}
+                {it.created_at ? (
+                  <span> · {new Date(it.created_at).toLocaleDateString()}</span>
+                ) : null}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Shell>
   );
 }
-
-// ------------------------
-// Item Card
-// ------------------------
-function ItemCard({ it, me }) {
-  const isMine =
-    !!me &&
-    (eq(it?.originator_name, me) ||
-      eq(it?.user_id, undefined) ? false : false); // safe default
-  // we still highlight by originator_name when available
-  const mine = !!me && eq(it?.originator_name, me);
-
-  return (
-    <div style={styles.item}>
-      {/* Top badges */}
-      <div style={styles.badgeRow}>
-        <span style={styles.pillType}>{cap(it?.item_type || "frustration")}</span>
-        {it?.priority_rank != null && (
-          <span style={styles.pillMeta}>rank: {it.priority_rank}</span>
-        )}
-        {it?.tier && <span style={styles.pillMeta}>tier: {it.tier}</span>}
-      </div>
-
-      {/* Title / content */}
-      <div style={styles.titleRow}>
-        <span style={styles.itemTitle}>
-          {it?.item_title?.trim?.() || it?.content?.trim?.() || "(untitled)"}
-        </span>
-      </div>
-
-      {/* Meta line */}
-      <div style={styles.metaRow}>
-        <span style={styles.metaPill}>{fmt(it?.created_at)}</span>
-        <span style={styles.metaPill}>org: {it?.org_slug || "demo"}</span>
-        <span style={styles.metaPill}>team: {it?.team_id ? String(it.team_id) : "—"}</span>
-        {/* Originator */}
-        <span
-          style={{
-            ...styles.metaPill,
-            ...(mine ? styles.originatorMine : styles.originatorOther),
-          }}
-          title={it?.originator_name || ""}
-        >
-          by {it?.originator_name || "—"}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ------------------------
-// Utils & styles
-// ------------------------
-function eq(a, b) {
-  if (a == null || b == null) return false;
-  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-}
-
-function cap(s) {
-  if (!s) return "";
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-async function safeError(res) {
-  try {
-    const t = await res.text();
-    try {
-      const j = JSON.parse(t);
-      return j?.error || j?.message || t;
-    } catch {
-      return t;
-    }
-  } catch {
-    return "";
-  }
-}
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: C.bg,
-    color: "#FFF",
-    padding: 16,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  header: {
-    width: 680,
-    maxWidth: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 700,
-  },
-  authBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  authRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  emailInput: {
-    height: 34,
-    borderRadius: 8,
-    padding: "0 10px",
-    border: `1px solid ${C.border}`,
-    background: "transparent",
-    color: "#fff",
-  },
-  authBtn: {
-    background: C.blueDark,
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "8px 12px",
-    cursor: "pointer",
-  },
-  meTag: { opacity: 0.7 },
-  meName: { fontWeight: 600 },
-
-  card: {
-    width: 680,
-    maxWidth: "100%",
-    background: C.blueDark,
-    borderRadius: 14,
-    padding: 12,
-    border: `1px solid ${C.border}`,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    opacity: 0.8,
-    marginBottom: 6,
-  },
-  textarea: {
-    width: "100%",
-    minHeight: 64,
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.15)",
-    background: "rgba(255,255,255,0.06)",
-    color: "#fff",
-    padding: 10,
-    outline: "none",
-  },
-  row: { display: "flex", alignItems: "center", gap: 10, marginTop: 8 },
-  saveBtn: {
-    background: "#1b9e59",
-    color: "#fff",
-    border: 0,
-    padding: "8px 12px",
-    borderRadius: 8,
-    cursor: "pointer",
-  },
-  notice: { fontSize: 12, opacity: 0.85 },
-
-  loading: { opacity: 0.8, marginTop: 8 },
-
-  item: {
-    width: 680,
-    maxWidth: "100%",
-    background: C.card,
-    color: C.textDark,
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 10,
-    border: `1px solid ${C.border}`,
-  },
-  badgeRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 6,
-    flexWrap: "wrap",
-  },
-  pillType: {
-    background: C.blueDark,
-    color: "#fff",
-    borderRadius: 6,
-    padding: "2px 8px",
-    fontSize: 11,
-    fontWeight: 700,
-    textTransform: "capitalize",
-  },
-  pillMeta: {
-    background: "rgba(0,0,0,0.06)",
-    borderRadius: 6,
-    padding: "2px 8px",
-    fontSize: 11,
-  },
-  titleRow: { marginBottom: 6 },
-  itemTitle: {
-    color: C.yellow,
-    fontWeight: 700,
-  },
-  metaRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  metaPill: {
-    background: "rgba(0,0,0,0.06)",
-    borderRadius: 6,
-    padding: "2px 8px",
-    fontSize: 11,
-  },
-  originatorMine: {
-    background: C.berry,
-    color: "#fff",
-  },
-  originatorOther: {
-    background: "rgba(0,0,0,0.06)",
-  },
-};
-
-const globalStyles = `
-  * { box-sizing: border-box; }
-  body, html, #root { margin: 0; height: 100%; }
-`;
