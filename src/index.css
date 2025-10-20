@@ -1,110 +1,67 @@
-/* src/index.css — Felma palette + base styles */
-
 :root{
-  --blue-dark:#005E87;
-  --blue-light:#2CD0D7;
-  --yellow:#FDC732;
-  --berry:#D42956; /* only for (you) badge */
-  --ink:#212121;
-  --paper:#101418;
-  --card:#14202A;
-  --border:#22303A;
-  --muted:#8FA6B3;
-  --white:#FFFFFF;
+  --bg:#0a1f2a;       /* near 005E87 family, darkened for UI */
+  --ink:#ffffff;
+  --muted:#b8c7cf;
+  --brand:#005E87;    /* Dark Blue */
+  --accent:#FDC732;   /* Yellow */
+  --me:#D42956;       /* Berry (name only) */
+  --card:#0f2b3b;
+  --card2:#103245;
+  --ok:#2CD0D7;       /* Lighter Blue for subtle accents if needed */
 }
 
 *{box-sizing:border-box}
-html,body,#root{height:100%}
-body{
-  margin:0;
-  background:var(--paper);
-  color:var(--white);
-  font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,"Apple Color Emoji","Segoe UI Emoji";
-}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial}
+a{color:var(--accent);text-decoration:none}
 
-a{color:inherit}
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+.mast{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.brand{font-weight:700;cursor:pointer}
+.logo{background:var(--brand);color:#fff;padding:4px 8px;border-radius:8px}
+.muted{color:var(--muted);margin-left:8px}
 
-.container{
-  max-width:750px;
-  margin:24px auto 64px;
-  padding:0 16px;
-}
+.whoami label{display:block;font-size:12px;color:var(--muted)}
+.whoami input{width:240px;padding:8px;border-radius:8px;border:1px solid #22485c;background:var(--card);color:var(--ink)}
 
-.header{
-  background:var(--blue-dark);
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:14px 14px 8px;
-  box-shadow:0 2px 10px rgba(0,0,0,.25);
-}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin:8px 0 16px}
+.toolbar .left{display:flex;align-items:center;gap:8px}
+select{background:var(--card);color:var(--ink);border:1px solid #22485c;border-radius:8px;padding:8px}
 
-.h-row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
-.h-title{font-weight:700}
-.h-auth{display:flex;gap:8px;align-items:center}
-.h-auth input{
-  width:220px;
-  padding:8px 10px;
-  border-radius:8px;
-  border:1px solid var(--border);
-  background:rgba(0,0,0,.2);
-  color:var(--white);
-}
-.btn{
-  appearance:none;border:0;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer;
-  background:var(--yellow);color:var(--ink);
-}
-.btn:disabled{opacity:.6;cursor:default}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid #22485c;border-radius:12px;padding:12px}
+.card:hover{background:var(--card2);cursor:pointer}
+.card.error{border-color:#d44}
+.cardtitle{margin:6px 0 4px;font-size:18px}
+.meta{color:var(--muted);font-size:13px}
+.me{color:var(--me)}
 
-.new textarea{
-  width:100%;min-height:56px;resize:vertical;border-radius:10px;border:1px solid var(--border);
-  background:rgba(0,0,0,.2);padding:10px;color:var(--white);
-}
-.new .save{margin-top:8px}
+.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid #2a5166;background:#0d2430;color:#d3e6ef}
+.pill.type.frustration{border-color:#3b6b84}
+.pill.type.idea{border-color:#3b6b84}
 
-.list{margin-top:16px;display:flex;flex-direction:column;gap:12px}
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:10px 12px;
-}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badgewrap{display:flex;gap:6px;flex-wrap:wrap}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:6px;border:1px solid #35566b;background:#0f2b3b;color:#cfe5ee}
+.badge.rank{border-color:#4a88a5}
+.badge.tier{border-color:#5aa2bd}
+.badge.leader{border-color:#D42956;color:#ffdbe3}
 
-/* pills */
-.pill{
-  font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
-  background:#0E171F;color:var(--white);
-}
-.p-frus{background:#0E2A3B}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid #22485c;background:transparent;color:var(--ink)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.ghost{border-color:#22485c}
 
-.title{
-  color:var(--yellow);font-weight:700;margin:6px 2px 0;
-}
+.detail .crumbs{margin-bottom:8px}
+.detail .title{margin:2px 0 6px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
+.factor{background:#0c2735;border:1px solid #22485c;padding:10px;border-radius:10px}
+.factor .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.factor label{color:#d7e6ed}
+.factor .value{color:var(--accent);font-weight:700}
+.factor input[type="range"]{width:100%}
+.ticks{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:2px}
 
-.meta{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;color:var(--muted)}
-.meta .small-pill{
-  font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid var(--border);background:#0E171F;color:var(--muted);
-}
+.rankbar{display:flex;gap:8px;align-items:center;margin:8px 0}
+.rankbar .rank{font-size:18px;color:var(--accent)}
 
-/* (you) highlight */
-.origin{
-  display:inline-flex;gap:6px;align-items:center
-}
-.origin .me{
-  background:var(--berry);
-  color:var(--white);
-  font-weight:800;
-  padding:1px 6px;border-radius:999px;border:1px solid transparent;
-}
+.empty{opacity:0.8}
 
-/* sort switch */
-.sort{
-  display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--muted)
-}
-.sort select{
-  background:#0E171F;border:1px solid var(--border);color:var(--white);padding:6px 8px;border-radius:8px
-}
-
-/* small helpers */
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
-.faint{opacity:.75}
+.foot{margin-top:28px;color:var(--muted);font-size:13px}
