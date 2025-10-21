@@ -104,4 +104,79 @@ export default function App() {
         <div>
           <div style={{ opacity: 0.6, fontWeight: 700, letterSpacing: 3 }}>DEMO</div>
           <h1 style={{ margin: "6px 0 0 0" }}>{TEXT.appLabel}</h1>
-          <div
+          <div style={{ color: "#ffd666", fontWeight: 600 }}>{TEXT.orgName}</div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <label style={{ opacity: 0.75, marginRight: 4 }}>Me:</label>
+          <input
+            placeholder="Your name or phone (for 'Mine' view)"
+            value={me}
+            onChange={(e) => setMe(e.target.value)}
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 12,
+              padding: "8px 10px",
+              minWidth: 240,
+            }}
+          />
+          <select
+            value={view}
+            onChange={(e) => setView(e.target.value)}
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 12,
+              padding: "8px 10px",
+            }}
+          >
+            <option value="rank">{TEXT.views.rank}</option>
+            <option value="newest">{TEXT.views.newest}</option>
+            <option value="mine">{TEXT.views.mine}</option>
+          </select>
+          <button
+            onClick={load}
+            style={{
+              background: "rgba(255,255,255,0.10)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 12,
+              padding: "8px 12px",
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div
+        style={{
+          marginTop: 18,
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(260px, 1fr))",
+          gap: 14,
+        }}
+      >
+        {shown.map((it) => (
+          <Card key={it.id} item={it} onOpen={setDrawerItem} me={me} />
+        ))}
+        {shown.length === 0 && (
+          <div style={{ opacity: 0.7 }}>No items yet.</div>
+        )}
+      </div>
+
+      {/* Drawer */}
+      {drawerItem && (
+        <ItemDetail
+          item={drawerItem}
+          me={me}
+          onClose={() => setDrawerItem(null)}
+        />
+      )}
+    </div>
+  );
+}
