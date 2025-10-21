@@ -1,75 +1,67 @@
-import React from "react";
-import { COPY, ORG_NAME } from "./copy.js";
+// src/ItemDetail.jsx
+import { TEXT, formatDate, isMine } from "./logic.js";
 
-const row = { display: "grid", gridTemplateColumns: "120px 1fr", gap: 10, margin: "6px 0" };
-const label = { color: "#9FB3C8", fontSize: 12, alignSelf: "center" };
-const val = { color: "#D6E2F0", fontSize: 14 };
+export default function ItemDetail({ item, me, onClose }) {
+  const ownerName = item?.owner_name || item?.user_id || "—";
+  const mine = isMine(item, me);
 
-export default function ItemDetail({ item, onClose, displayOwner, fmtDate, tierLabel, org }) {
-  const orgName = org || ORG_NAME;
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <h3 style={{ margin: 0, color: "#F4D35E" }}>{item?.content || item?.item_title || "Untitled"}</h3>
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        right: 0,
+        width: 420,
+        height: "100vh",
+        background: "#0a2a44",
+        color: "white",
+        borderLeft: "1px solid rgba(255,255,255,0.1)",
+        padding: 16,
+        overflowY: "auto",
+        boxShadow: "-12px 0 32px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 700, fontSize: 18, color: "#ffd666" }}>
+          {item?.content || item?.transcript || "Untitled"}
+        </div>
         <button
-          style={{
-            background: "#0F2E4F",
-            color: "#D6E2F0",
-            border: "1px solid #264868",
-            borderRadius: 10,
-            padding: "6px 10px",
-            cursor: "pointer",
-          }}
           onClick={onClose}
+          style={{
+            background: "rgba(255,255,255,0.10)",
+            color: "white",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 12,
+            padding: "6px 10px",
+          }}
         >
-          ×
+          ✕
         </button>
       </div>
 
-      <div style={{ height: 12 }} />
+      {/* Fields (order requested) */}
+      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "140px 1fr", rowGap: 10 }}>
+        <div style={{ opacity: 0.7 }}> {TEXT.chips.originator} </div>
+        <div style={{ color: mine ? "#ff89c3" : "white" }}>{ownerName}</div>
 
-      <div style={row}>
-        <div style={label}>{COPY.detail.organisation}</div>
-        <div style={val}>{orgName}</div>
+        <div style={{ opacity: 0.7 }}> {TEXT.chips.tier} </div>
+        <div>{item?.action_tier || "—"}</div>
+
+        <div style={{ opacity: 0.7 }}> {TEXT.chips.rank} </div>
+        <div>{Number(item?.priority_rank || 0)}</div>
+
+        <div style={{ opacity: 0.7 }}> {TEXT.chips.leader} </div>
+        <div>{item?.leader_to_unblock ? "Yes" : "—"}</div>
+
+        <div style={{ opacity: 0.7 }}> Organisation </div>
+        <div>{TEXT.orgName}</div>
+
+        <div style={{ opacity: 0.7 }}> Created </div>
+        <div>{formatDate(item?.created_at)}</div>
+
+        <div style={{ opacity: 0.7 }}> Response </div>
+        <div>{item?.response || "—"}</div>
       </div>
-
-      <div style={row}>
-        <div style={label}>{COPY.detail.created}</div>
-        <div style={val}>{fmtDate(item?.created_at)}</div>
-      </div>
-
-      <div style={row}>
-        <div style={label}>{COPY.detail.rank}</div>
-        <div style={val}>{Number(item?.rank ?? item?.priority_rank ?? 0)}</div>
-      </div>
-
-      <div style={row}>
-        <div style={label}>{COPY.detail.tier}</div>
-        <div style={val}>{tierLabel(item)}</div>
-      </div>
-
-      <div style={row}>
-        <div style={label}>{COPY.detail.type}</div>
-        <div style={val}>{item?.item_type || "frustration"}</div>
-      </div>
-
-      <div style={row}>
-        <div style={label}>{COPY.detail.leader}</div>
-        <div style={val}>{item?.leader_to_unblock ? "Yes" : "No"}</div>
-      </div>
-
-      <div style={row}>
-        <div style={label}>{COPY.detail.owner}</div>
-        <div style={val}>{displayOwner(item) || "—"}</div>
-      </div>
-
-      {item?.response ? (
-        <>
-          <div style={{ height: 12 }} />
-          <div style={{ ...label, marginBottom: 4 }}>{COPY.detail.response}</div>
-          <div style={{ ...val, whiteSpace: "pre-wrap" }}>{item.response}</div>
-        </>
-      ) : null}
     </div>
   );
 }
