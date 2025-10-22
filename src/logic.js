@@ -11,6 +11,7 @@ export const API =
 export const PEOPLE = {
   // Example formats (EDIT THESE to real ones when you have them):
   // "+447822726691": "Stuart R",
+  // "+447471280901": "Greig R",
   // "+447700900111": "Kate L",
   // "+447700900222": "Helen-Marie N",
   // "+447700900333": "Charlotte ?",
