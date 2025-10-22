@@ -11,11 +11,12 @@ export const API =
 export const PEOPLE = {
   // Example formats (EDIT THESE to real ones when you have them):
   // "+447822726691": "Stuart R",
-  // "+447700900111": "Kate J",
+  // "+447700900111": "Kate L",
   // "+447700900222": "Helen-Marie N",
   // "+447700900333": "Charlotte ?",
   // "+447700900444": "Lauren M",
-  // "+447700900555": "Liz M",
+  // "+447700900555": "Liz M"
+  // "+447700900555": "Kate J",
 };
 
 export function displayName(idOrName) {
