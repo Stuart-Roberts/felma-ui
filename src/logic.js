@@ -10,12 +10,12 @@ export const API =
 // If we don't find a match, we'll show the raw value.
 export const PEOPLE = {
   // Example formats (EDIT THESE to real ones when you have them):
-  // "+447822726691": "Stuart Roberts",
-  // "+447700900111": "Kate",
-  // "+447700900222": "Helen-Marie",
-  // "+447700900333": "Charlotte",
-  // "+447700900444": "Lauren",
-  // "+447700900555": "Liz",
+  // "+447822726691": "Stuart R",
+  // "+447700900111": "Kate J",
+  // "+447700900222": "Helen-Marie N",
+  // "+447700900333": "Charlotte ?",
+  // "+447700900444": "Lauren M",
+  // "+447700900555": "Liz M",
 };
 
 export function displayName(idOrName) {
