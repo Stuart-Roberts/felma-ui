@@ -1,97 +1,131 @@
 // src/ItemDetail.jsx
-import { useEffect, useState } from "react";
-import { API, fmtDate, isMine, loadMe, postJSON, displayName } from "./logic";
+import React, { useEffect, useMemo, useState } from "react";
+import { saveFactors, createItem, fmtDate, nameFor } from "./logic";
 
-export default function ItemDetail({ item, onClose, onUpdated }) {
-  const [me] = useState(loadMe());
-  const [editing, setEditing] = useState(false);
-  const [ci, setCi] = useState(item.customer_impact ?? null);
-  const [te, setTe] = useState(item.team_energy ?? null);
-  const [fr, setFr] = useState(item.frequency ?? null);
-  const [ea, setEa] = useState(item.ease ?? null);
-  const canSave = [ci, te, fr, ea].every((v) => typeof v === "number");
+export default function ItemDetail({ open, onClose, item, mePhone, people, onSaved }) {
+  if (!open) return null;
+
+  const isNew = !item;
+  const isMine = !isNew && item?.user_id && mePhone && item.user_id === mePhone;
+
+  // Title
+  const [title, setTitle] = useState(isNew ? "" : (item?.title || item?.transcript || ""));
+
+  // Factors
+  const [ci, setCi] = useState(isNew ? 0 : (item?.customer_impact ?? 0));
+  const [te, setTe] = useState(isNew ? 0 : (item?.team_energy ?? 0));
+  const [fq, setFq] = useState(isNew ? 0 : (item?.frequency ?? 0));
+  const [ez, setEz] = useState(isNew ? 0 : (item?.ease ?? 0));
+
+  // Save enablement
+  const allSet = [ci, te, fq, ez].every(n => Number.isFinite(n) && n >= 1 && n <= 10);
+  const canSave = isNew ? allSet && Boolean(mePhone) : allSet;
 
   useEffect(() => {
-    setCi(item.customer_impact ?? null);
-    setTe(item.team_energy ?? null);
-    setFr(item.frequency ?? null);
-    setEa(item.ease ?? null);
-  }, [item.id]);
+    // If item changes while open, sync fields
+    if (!item) return;
+    setTitle(item?.title || item?.transcript || "");
+    setCi(item?.customer_impact ?? 0);
+    setTe(item?.team_energy ?? 0);
+    setFq(item?.frequency ?? 0);
+    setEz(item?.ease ?? 0);
+  }, [item]);
 
-  async function saveScores() {
-    if (!canSave) return;
+  const originatorName = useMemo(() => {
+    return item ? nameFor(item.user_id, people) : nameFor(mePhone, people);
+  }, [item, mePhone, people]);
+
+  async function handleSave() {
     try {
-      const body = {
-        customer_impact: ci,
-        team_energy: te,
-        frequency: fr,
-        ease: ea,
-      };
-      await postJSON(`${API}/items/${item.id}/factors`, body);
-      onUpdated?.();
-      setEditing(false);
+      if (isNew) {
+        const story = title?.trim() || "(untitled)";
+        const { id } = await createItem({
+          story,
+          user_phone: mePhone || null,
+          customer_impact: ci, team_energy: te, frequency: fq, ease: ez,
+        });
+        onSaved?.({ id, refresh: true });
+        onClose();
+        return;
+      }
+      // edit existing (send optional title only if mine)
+      const payload = { customer_impact: ci, team_energy: te, frequency: fq, ease: ez };
+      if (isMine && typeof title === "string") payload.title = title;
+      await saveFactors(item.id, payload);
+      onSaved?.({ id: item.id, refresh: true });
+      onClose();
     } catch (e) {
-      alert(`Save failed: ${e.message}`);
+      alert(`Save failed: ${e?.message || e}`);
     }
   }
-
-  const Slider = ({ label, value, setValue }) => (
-    <div className="field">
-      <label>{label} <b>{value ?? "—"}</b></label>
-      <input
-        type="range"
-        min="1" max="10" step="1"
-        value={value ?? 1}
-        onChange={(e) => setValue(Number(e.target.value))}
-        onMouseUp={(e) => setValue(Number(e.target.value))}
-        onTouchEnd={(e) => setValue(Number(e.target.value))}
-      />
-      <div className="ticks">1<span/>5<span/>10</div>
-    </div>
-  );
 
   return (
     <div className="drawer">
       <div className="drawer-head">
-        <div className="title">{item.content || "(untitled)"}</div>
-        <button className="icon" onClick={onClose}>✕</button>
+        <div className="drawer-title">{isNew ? "New item" : "Edit item"}</div>
+        <button className="x" onClick={onClose}>×</button>
       </div>
 
-      {/* ORDER you asked for */}
-      <div className="grid meta">
-        <div><div className="k">Originator</div><div className={`v ${isMine(me, item.originator_name || item.user_id) ? "mine" : ""}`}>
-          {displayName(item.originator_name || item.user_id)}
-        </div></div>
-        <div><div className="k">Tier</div><div className="v">{item.action_tier || "—"}</div></div>
-        <div><div className="k">Rank</div><div className="v">{item.priority_rank ?? 0}</div></div>
-        <div><div className="k">Leader to Unblock</div><div className="v">{item.leader_to_unblock ? "Yes" : "—"}</div></div>
-        <div><div className="k">Organisation</div><div className="v">St Michael's</div></div>
-        <div><div className="k">Created</div><div className="v">{fmtDate(item.created_at)}</div></div>
-      </div>
+      {/* Title (editable if new, or mine) */}
+      <label className="lbl">Story / title</label>
+      <input
+        className="txt"
+        placeholder="Short title…"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        disabled={!isNew && !isMine}
+      />
 
-      <div className="field">
-        <label>Response</label>
-        <div className="note">{item.response || "—"}</div>
-      </div>
-
-      {!editing && (
-        <div className="actions">
-          <button className="primary" onClick={() => setEditing(true)}>Edit scores</button>
+      {/* Meta — in your requested order */}
+      {!isNew && (
+        <div className="meta-grid">
+          <Meta label="Originator" value={originatorName} />
+          <Meta label="Tier" value={item?.action_tier || "—"} />
+          <Meta label="Rank" value={Number.isFinite(item?.priority_rank) ? String(item.priority_rank) : "—"} />
+          <Meta label="Leader to Unblock" value={item?.leader_to_unblock ? "Yes" : "No"} />
+          <Meta label="Organisation" value={item?.org_slug ? "St Michael’s" : "—"} />
+          <Meta label="Created" value={fmtDate(item?.created_at)} />
+          <Meta label="Response" value={item?.response || "—"} wide />
         </div>
       )}
 
-      {editing && (
-        <>
-          <Slider label="Customer impact" value={ci} setValue={setCi} />
-          <Slider label="Team energy" value={te} setValue={setTe} />
-          <Slider label="Frequency" value={fr} setValue={setFr} />
-          <Slider label="Ease" value={ea} setValue={setEa} />
-          <div className="actions">
-            <button className="ghost" onClick={() => setEditing(false)}>Cancel</button>
-            <button className="primary" disabled={!canSave} onClick={saveScores}>Save</button>
-          </div>
-        </>
-      )}
+      <div className="sliders">
+        <Slider label="Customer impact" value={ci} setValue={setCi} />
+        <Slider label="Team energy" value={te} setValue={setTe} />
+        <Slider label="Frequency" value={fq} setValue={setFq} />
+        <Slider label="Ease" value={ez} setValue={setEz} />
+        <p className="hint">Set all four (1–10). Save is disabled until you do.</p>
+      </div>
+
+      <div className="drawer-actions">
+        <button className="btn ghost" onClick={onClose}>Cancel</button>
+        <button className="btn primary" disabled={!canSave} onClick={handleSave}>Save</button>
+      </div>
+    </div>
+  );
+}
+
+function Slider({ label, value, setValue }) {
+  return (
+    <div className="row">
+      <div className="row-top">
+        <span>{label}</span>
+        <span className={value >= 1 ? "val" : "val pending"}>{value || 0}</span>
+      </div>
+      <input
+        type="range"
+        min="0" max="10" step="1"
+        value={value || 0}
+        onChange={e => setValue(Number(e.target.value))}
+      />
+    </div>
+  );
+}
+function Meta({ label, value, wide }) {
+  return (
+    <div className={`meta ${wide ? "wide" : ""}`}>
+      <div className="meta-label">{label}</div>
+      <div className="meta-value">{value ?? "—"}</div>
     </div>
   );
 }
