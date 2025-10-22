@@ -1,31 +1,77 @@
 // src/logic.js
-// Central helpers: ranking math, tier rules, date formatting, views, and UI text.
+// Shared helpers for API, ranking, names, formatting
 
-export const TEXT = {
-  appLabel: "Felma",
-  orgName: "St Michael’s – Frideas",
-  chips: {
-    rank: "RANK",
-    tier: "Tier",
-    leader: "Leader to Unblock",
-    originator: "Originator",
-  },
-  views: {
-    rank: "All — rank (high → low)",
-    newest: "All — newest first",
-    mine: "Mine",
-  },
+export const API =
+  import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ||
+  "https://felma-backend.onrender.com";
+
+// --- People mapping for the pilot ---
+// Fill in any known phone numbers or emails => friendly names.
+// If we don't find a match, we'll show the raw value.
+export const PEOPLE = {
+  // Example formats (EDIT THESE to real ones when you have them):
+  // "+447822726691": "Stuart Roberts",
+  // "+447700900111": "Kate",
+  // "+447700900222": "Helen-Marie",
+  // "+447700900333": "Charlotte",
+  // "+447700900444": "Lauren",
+  // "+447700900555": "Liz",
 };
 
-// Brand colors
-export const COLOR_LEADER = "#2CD0D7";     // pill color for Leader to Unblock
-export const COLOR_BERRY  = "#ff89c3";     // “mine” highlight
+export function displayName(idOrName) {
+  if (!idOrName) return "—";
+  const key = String(idOrName).trim();
+  // exact match on id (phone/email)
+  if (PEOPLE[key]) return PEOPLE[key];
+  // also try case-insensitive name lookup in case DB stored a name in originator_name
+  const lower = key.toLowerCase();
+  const asName = Object.values(PEOPLE).find(
+    (n) => String(n).toLowerCase() === lower
+  );
+  return asName || key;
+}
 
-// --------- Ranking & rules (kept here for client display if needed) ----------
+export function saveMe(me) {
+  localStorage.setItem("felma.me", me ?? "");
+}
+
+export function loadMe() {
+  return localStorage.getItem("felma.me") || "";
+}
+
+export function isMine(me, ownerIdOrName) {
+  if (!me || !ownerIdOrName) return false;
+  const a = String(me).trim().toLowerCase();
+  const b = String(ownerIdOrName).trim().toLowerCase();
+  // direct match
+  if (a === b) return true;
+  // compare friendly names if both resolve
+  const fa = displayName(me).toLowerCase();
+  const fb = displayName(ownerIdOrName).toLowerCase();
+  return fa && fb && fa === fb;
+}
+
+export async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`GET ${url} → ${r.status}`);
+  return r.json();
+}
+
+export async function postJSON(url, body) {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  if (!r.ok) throw new Error(`POST ${url} → ${r.status}`);
+  return r.json();
+}
+
+// ---------- Ranking & rules (pilot) ----------
 export function computePriorityRank(customer_impact, team_energy, frequency, ease) {
   // PR = round( (0.57*Customer + 0.43*Team) * (0.6*Frequency + 0.4*Ease) )
-  const a = 0.57 * Number(customer_impact || 0) + 0.43 * Number(team_energy || 0);
-  const b = 0.6 * Number(frequency || 0) + 0.4 * Number(ease || 0);
+  const a = 0.57 * customer_impact + 0.43 * team_energy;
+  const b = 0.6 * frequency + 0.4 * ease;
   return Math.round(a * b);
 }
 
@@ -37,56 +83,17 @@ export function tierForPR(pr) {
   return "⚪ Park for later";
 }
 
-// Rule: Team Energy >= 9 AND Ease <= 3 → leader_to_unblock = true
+// Leader to Unblock: Team Energy ≥ 9 AND Ease ≤ 3
 export function shouldLeaderUnblock(team_energy, ease) {
-  return Number(team_energy || 0) >= 9 && Number(ease || 0) <= 3;
+  return Number(team_energy) >= 9 && Number(ease) <= 3;
 }
 
-// --------- Optional aliasing (fill in later if you want names for phones) ----
-const OWNER_ALIASES = {
-  // "+447700900123": "Kate",    // example
-  // "+447700900124": "Helen-Marie",
-  // "+447700900125": "Charlotte",
-  // "+447700900126": "Lauren",
-  // "+447700900127": "Liz",
-};
-
-export function displayOwner(row) {
-  const rawName = (row?.owner_name || "").trim();
-  const uid     = (row?.user_id || "").trim();
-  return OWNER_ALIASES[uid] || OWNER_ALIASES[rawName] || rawName || uid || "—";
-}
-
-// “20-Oct-’25” (GB) or “Oct 20-’25” (US)
-export function formatDate(iso, locale = (typeof navigator !== "undefined" ? navigator.language : "en-GB")) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mmm = d.toLocaleString(locale, { month: "short" });
-  const yy = String(d.getFullYear()).slice(-2);
-  const isUS = /^en-US/i.test(locale);
-  return isUS ? `${mmm} ${dd}-’${yy}` : `${dd}-${mmm}-’${yy}`;
-}
-
-// Views: rank / newest / mine
-export function isMine(row, me) {
-  if (!me) return false;
-  const mine = me.trim().toLowerCase();
-  const shown = displayOwner(row).toLowerCase();
-  const uid = (row?.user_id || "").toLowerCase();
-  return (shown && shown.includes(mine)) || (uid && uid.includes(mine));
-}
-
-export function getViewSorted(rows = [], view = "rank", me = "") {
-  const items = Array.isArray(rows) ? rows.slice() : [];
-  if (view === "mine") {
-    return items
-      .filter((r) => isMine(r, me))
-      .sort((a, b) => (Number(b?.priority_rank || 0) - Number(a?.priority_rank || 0)));
-  }
-  if (view === "newest") {
-    return items.sort((a, b) => new Date(b?.created_at || 0) - new Date(a?.created_at || 0));
-  }
-  // default: rank high → low
-  return items.sort((a, b) => Number(b?.priority_rank || 0) - Number(a?.priority_rank || 0));
+// ---------- formatting ----------
+export function fmtDate(d) {
+  const dt = new Date(d);
+  const day = dt.toLocaleString(undefined, { day: "2-digit" });
+  const mon = dt.toLocaleString(undefined, { month: "short" });
+  const yr = dt.toLocaleString(undefined, { year: "2-digit" });
+  // "20-Oct-’25"
+  return `${day}-${mon}-’${yr}`;
 }
