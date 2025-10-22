@@ -1,47 +1,48 @@
-// src/logic.js
-export const API = import.meta.env.VITE_API_BASE || "https://felma-backend.onrender.com";
+// Minimal API client used by App.jsx
+const API_BASE = import.meta.env?.VITE_API_BASE || "https://felma-backend.onrender.com";
+const ORG = "stmichaels";
 
-async function j(url, opts) {
-  const r = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
-  if (!r.ok) throw new Error(`${opts?.method || "GET"} ${url} → ${r.status}`);
-  return r.json();
-}
-
-export async function fetchPeople() {
-  const { people } = await j(`${API}/api/people`);
-  return people || [];
-}
-
+// GET /api/list?org=...
 export async function fetchItems() {
-  const { items } = await j(`${API}/api/list`);
-  return items || [];
+  const r = await fetch(`${API_BASE}/api/list?org=${encodeURIComponent(ORG)}`, { cache: "no-store" });
+  if (!r.ok) throw new Error("list failed");
+  const json = await r.json();
+  return json.items || [];
 }
 
-export async function createItem({ story, user_phone, customer_impact, team_energy, frequency, ease }) {
-  return j(`${API}/items/new`, {
+// GET /api/people
+export async function fetchPeople() {
+  const r = await fetch(`${API_BASE}/api/people`, { cache: "no-store" });
+  if (!r.ok) throw new Error("people failed");
+  const json = await r.json();
+  return json.people || [];
+}
+
+// POST /items/new  (title + 4 factors + user_id + org_slug)
+export async function createItem({ title, customer_impact, team_energy, frequency, ease, user_id }) {
+  const payload = {
+    title: (title || "").trim(),
+    customer_impact, team_energy, frequency, ease,
+    user_id,
+    org_slug: ORG
+  };
+  const r = await fetch(`${API_BASE}/items/new`, {
     method: "POST",
-    body: JSON.stringify({ story, user_phone, customer_impact, team_energy, frequency, ease }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
   });
+  if (!r.ok) throw new Error(`add failed ${r.status}`);
+  return await r.json();
 }
 
-export async function saveFactors(id, { customer_impact, team_energy, frequency, ease, title }) {
-  return j(`${API}/items/${id}/factors`, {
+// POST /items/:id/factors (4 factors) -> returns { priority_rank, action_tier, leader_to_unblock }
+export async function updateFactors(id, { customer_impact, team_energy, frequency, ease }) {
+  const payload = { customer_impact, team_energy, frequency, ease };
+  const r = await fetch(`${API_BASE}/items/${id}/factors`, {
     method: "POST",
-    body: JSON.stringify({ customer_impact, team_energy, frequency, ease, title }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
   });
-}
-
-export function fmtDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
-  } catch { return ""; }
-}
-
-export function nameFor(userPhone, people) {
-  if (!userPhone) return "—";
-  const p = people.find(p => (p.phone || "").trim() === (userPhone || "").trim());
-  return p?.display_name || userPhone;
+  if (!r.ok) throw new Error(`save failed ${r.status}`);
+  return await r.json();
 }
