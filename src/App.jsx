@@ -1,113 +1,292 @@
-// src/App.jsx
-import { useEffect, useMemo, useState } from "react";
-import ItemDetail from "./ItemDetail.jsx";
-import NewItem from "./NewItem.jsx";
-import {
-  API, getJSON, loadMe, saveMe, isMine, displayName, fmtDate,
-} from "./logic";
-import { STR } from "./text";
+import React, { useEffect, useMemo, useState } from "react";
+import "./index.css";
+
+// Change if you’ve set VITE_API_BASE; otherwise use your Render URL:
+const API =
+  import.meta.env?.VITE_API_BASE || "https://felma-backend.onrender.com";
+
+// ---------- helpers ----------
+const displayTitle = (it) =>
+  (it.title && it.title.trim()) ||
+  (it.content && it.content.trim()) ||
+  (it.transcript && it.transcript.trim()) ||
+  "(untitled)";
+
+const fmtDate = (iso) =>
+  !iso ? "" : new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+
+const Pill = ({ children, tone = "default" }) => {
+  const cls =
+    tone === "rank"
+      ? "pill pill-rank"
+      : tone === "tier"
+      ? "pill pill-tier"
+      : tone === "leader"
+      ? "pill pill-leader"
+      : tone === "originator-me"
+      ? "pill pill-me"
+      : "pill";
+  return <span className={cls}>{children}</span>;
+};
 
 export default function App() {
   const [items, setItems] = useState([]);
-  const [me, setMe] = useState(loadMe());
-  const [view, setView] = useState("rank"); // rank | newest | mine
-  const [selection, setSelection] = useState(null);
-  const [adding, setAdding] = useState(false);
+  const [people, setPeople] = useState([]);
+  const [me, setMe] = useState("+447827276691"); // your number prefilled
+  const [view, setView] = useState("rank"); // "rank" | "newest" | "mine"
+  const [drawer, setDrawer] = useState(null); // {mode:'view'|'new', item:{}}
 
-  async function load() {
-    // simple list; backend already returns fields we need
-    const data = await getJSON(`${API}/api/list`);
-    setItems(data.items || []);
-  }
+  // people map
+  const nameOf = (user_id) => {
+    if (!user_id) return "—";
+    const p =
+      people.find((p) => p.phone === user_id) ||
+      people.find((p) => p.email === user_id);
+    return p?.display_name || String(user_id);
+  };
 
-  useEffect(() => { load(); }, []);
-  useEffect(() => { saveMe(me); }, [me]);
+  // fetchers
+  const fetchPeople = async () => {
+    const r = await fetch(`${API}/api/people`);
+    const j = await r.json();
+    setPeople(j.people || []);
+  };
+  const fetchItems = async () => {
+    const r = await fetch(`${API}/api/list`);
+    const j = await r.json();
+    setItems(j.items || []);
+  };
 
-  const filtered = useMemo(() => {
-    let rows = [...items];
-    if (view === "rank") {
-      rows.sort((a,b) => (b.priority_rank ?? 0) - (a.priority_rank ?? 0));
+  useEffect(() => {
+    fetchPeople();
+    fetchItems();
+  }, []);
+
+  const shown = useMemo(() => {
+    let arr = [...items];
+    if (view === "mine") {
+      arr = arr.filter((it) => it.user_id && me && String(it.user_id) === String(me));
+      arr.sort((a, b) => (b.priority_rank || 0) - (a.priority_rank || 0));
     } else if (view === "newest") {
-      rows.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    } else if (view === "mine") {
-      rows = rows.filter(r => isMine(me, r.originator_name || r.user_id));
-      rows.sort((a,b) => (b.priority_rank ?? 0) - (a.priority_rank ?? 0));
+      arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    } else {
+      // rank high→low
+      arr.sort((a, b) => (b.priority_rank || 0) - (a.priority_rank || 0));
     }
-    return rows;
+    return arr;
   }, [items, view, me]);
+
+  // save factors
+  const saveFactors = async (id, body) => {
+    const r = await fetch(`${API}/items/${id}/factors`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(`Save failed (${r.status})`);
+    const j = await r.json();
+    // refresh the list so rank/tier update
+    await fetchItems();
+    return j;
+  };
+
+  // create new
+  const addNew = async (payload) => {
+    const r = await fetch(`${API}/items/new`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error(`Add failed (${r.status})`);
+    const j = await r.json();
+    await fetchItems();
+    return j;
+  };
 
   return (
     <div className="wrap">
       <header className="bar">
-        <div className="left">
-          <div className="brand">Felma</div>
-          <div className="org">
-            <div className="org-name">St Michael&apos;s – Frideas</div>
-          </div>
+        <div>
+          <div className="tiny">Felma</div>
+          <div className="org">St Michael’s – Frideas</div>
         </div>
-
-        <div className="right">
+        <div className="controls">
           <label className="me">
-            <span>{STR.meLabel}</span>
+            <span>Me:</span>
             <input
               value={me}
-              placeholder={STR.mePlaceholder}
               onChange={(e) => setMe(e.target.value)}
+              placeholder="+44… or email"
             />
           </label>
-
-          <select value={view} onChange={(e) => setView(e.target.value)}>
-            <option value="rank">{STR.viewAllRank}</option>
-            <option value="newest">{STR.viewAllNewest}</option>
-            <option value="mine">{STR.viewMine}</option>
+          <select
+            value={view}
+            onChange={(e) => setView(e.target.value)}
+            aria-label="View"
+          >
+            <option value="rank">All — rank (high → low)</option>
+            <option value="newest">All — newest</option>
+            <option value="mine">Mine</option>
           </select>
-
-          <button className="ghost" onClick={() => load()}>{STR.refresh}</button>
-          <button className="primary" onClick={() => setAdding(true)}>{STR.newItem}</button>
+          <button onClick={fetchItems}>Refresh</button>
+          <button
+            className="primary"
+            onClick={() =>
+              setDrawer({
+                mode: "new",
+                item: {
+                  title: "",
+                  customer_impact: 5,
+                  team_energy: 5,
+                  frequency: 5,
+                  ease: 5,
+                },
+              })
+            }
+          >
+            + New
+          </button>
         </div>
       </header>
 
       <main className="grid">
-        {filtered.map((it) => (
-          <article key={it.id} className="card" onClick={() => setSelection(it)}>
-            <div className="row pills">
-              <span className="pill rank">RANK <b>{it.priority_rank ?? 0}</b></span>
-              <span className="pill tier">Tier <b>{(it.action_tier || "—").split(" ").slice(0,3).join(" ")}</b></span>
-              {it.leader_to_unblock ? (
-                <span className="pill unblock">Leader to Unblock</span>
-              ) : null}
-              <span className={`pill owner ${isMine(me, it.originator_name || it.user_id) ? "mine" : ""}`}>
-                Originator: <b>{displayName(it.originator_name || it.user_id)}</b>
-              </span>
-            </div>
-            <div className="title">{it.content || "(untitled)"}</div>
-            <div className="date">{fmtDate(it.created_at)}</div>
-          </article>
-        ))}
+        {shown.map((it) => {
+          const origin = nameOf(it.user_id);
+          const isMe = it.user_id && me && String(it.user_id) === String(me);
+          return (
+            <article
+              key={it.id}
+              className="card"
+              onClick={() => setDrawer({ mode: "view", item: it })}
+            >
+              <div className="row">
+                <Pill tone="rank">RANK {it.priority_rank || 0}</Pill>
+                <Pill tone="tier">Tier {it.action_tier || "—"}</Pill>
+                {it.leader_to_unblock ? (
+                  <Pill tone="leader">Leader to Unblock</Pill>
+                ) : null}
+              </div>
 
-        {filtered.length === 0 && (
-          <div className="empty">{STR.noItems}</div>
+              <h3 className="title">{displayTitle(it)}</h3>
+
+              <div className="row meta">
+                <Pill tone={isMe ? "originator-me" : "default"}>
+                  Originator: {origin}
+                </Pill>
+              </div>
+
+              <div className="date">{fmtDate(it.created_at)}</div>
+            </article>
+          );
+        })}
+        {shown.length === 0 && (
+          <div className="empty">No items yet.</div>
         )}
       </main>
 
-      {selection && (
-        <ItemDetail
-          item={selection}
-          onClose={() => setSelection(null)}
-          onUpdated={async () => {
-            await load();
-            const updated = (await getJSON(`${API}/api/get?id=${selection.id}`)).item;
-            setSelection(updated);
+      {drawer && (
+        <Drawer
+          mode={drawer.mode}
+          item={drawer.item}
+          me={me}
+          onClose={() => setDrawer(null)}
+          onSaveFactors={async (vals) => {
+            await saveFactors(drawer.item.id, vals);
+            setDrawer(null);
+          }}
+          onAddNew={async (vals) => {
+            await addNew(vals);
+            setDrawer(null);
           }}
         />
       )}
+    </div>
+  );
+}
 
-      {adding && (
-        <NewItem
-          onClose={() => setAdding(false)}
-          onCreated={async () => load()}
-        />
-      )}
+// ---------- Drawer (view/edit & new) ----------
+function Slider({ label, value, onChange, min = 1, max = 10 }) {
+  return (
+    <label className="slider">
+      <span>{label} {value}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </label>
+  );
+}
+
+function Drawer({ mode, item, me, onClose, onSaveFactors, onAddNew }) {
+  const [story, setStory] = useState(item.title || "");
+  const [ci, setCi] = useState(item.customer_impact ?? 5);
+  const [te, setTe] = useState(item.team_energy ?? 5);
+  const [fq, setFq] = useState(item.frequency ?? 5);
+  const [ez, setEz] = useState(item.ease ?? 5);
+  const canSave = ci && te && fq && ez;
+
+  const doSave = async () => {
+    if (!canSave) return;
+    await onSaveFactors({
+      customer_impact: ci,
+      team_energy: te,
+      frequency: fq,
+      ease: ez,
+    });
+  };
+
+  const doAdd = async () => {
+    if (!canSave) return;
+    await onAddNew({
+      user_id: me,
+      title: story,
+      customer_impact: ci,
+      team_energy: te,
+      frequency: fq,
+      ease: ez,
+    });
+  };
+
+  return (
+    <div className="drawer">
+      <div className="panel">
+        <div className="panel-head">
+          <strong>{mode === "new" ? "New item" : "Edit item"}</strong>
+          <button className="link" onClick={onClose}>×</button>
+        </div>
+
+        <label className="field">
+          <span>Story / title</span>
+          <textarea
+            rows={3}
+            value={story}
+            onChange={(e) => setStory(e.target.value)}
+            placeholder="Add a short story or title…"
+            disabled={mode !== "new"}
+          />
+        </label>
+
+        <Slider label="Customer impact" value={ci} onChange={setCi} />
+        <Slider label="Team energy" value={te} onChange={setTe} />
+        <Slider label="Frequency" value={fq} onChange={setFq} />
+        <Slider label="Ease" value={ez} onChange={setEz} />
+
+        <div className="actions">
+          <button onClick={onClose}>Cancel</button>
+          {mode === "new" ? (
+            <button className="primary" disabled={!canSave} onClick={doAdd}>
+              Save
+            </button>
+          ) : (
+            <button className="primary" disabled={!canSave} onClick={doSave}>
+              Save
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
