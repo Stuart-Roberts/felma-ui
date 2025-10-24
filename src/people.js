@@ -9,7 +9,7 @@ export const PEOPLE = {
   "+447000000004": "Lauren",
   "+447000000005": "Liz",
   // You (so your own items berry-highlight correctly):
-  // "+44YOURNUMBER": "Stuart",
+  // "+447827276691": "Stuart",
 };
 
 // Return the best display label for an ID (phone/email) or name string.
