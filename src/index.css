@@ -476,3 +476,123 @@ body {
     grid-template-columns: 1fr;
   }
 }
+/* User Selector */
+.user-selector-drawer {
+  max-width: 400px;
+}
+
+.user-select {
+  background: var(--felma-bg);
+  border: 1px solid var(--felma-border);
+  color: var(--felma-text);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  cursor: pointer;
+}
+
+.user-select:focus {
+  outline: none;
+  border-color: var(--felma-teal);
+}
+
+.btn-large {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+}
+
+.current-user-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-label {
+  color: var(--felma-text-dim);
+  font-size: 0.875rem;
+}
+
+.user-name-btn {
+  background: var(--felma-teal);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.user-name-btn:hover {
+  opacity: 0.9;
+}
+
+.btn-new {
+  background: var(--felma-berry);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-new:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-new:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.leader-badge {
+  background: var(--felma-berry);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.title-input {
+  background: var(--felma-bg);
+  border: 1px solid var(--felma-border);
+  color: var(--felma-text);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  width: 100%;
+}
+
+.title-input:focus {
+  outline: none;
+  border-color: var(--felma-teal);
+}
+
+.new-item-drawer {
+  max-width: 500px;
+}
+
+.new-item-textarea {
+  background: var(--felma-bg);
+  border: 1px solid var(--felma-border);
+  color: var(--felma-text);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.new-item-textarea:focus {
+  outline: none;
+  border-color: var(--felma-teal);
+}
