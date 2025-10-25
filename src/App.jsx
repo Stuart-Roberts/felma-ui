@@ -1,5 +1,5 @@
 // felma-ui/src/App.jsx
-// Complete working version with sorting/filtering and all features
+// Version with user selector dropdown
 
 import { useEffect, useMemo, useState } from "react";
 import "./index.css";
@@ -23,21 +23,31 @@ function fmtDate(dateStr) {
 function displayName(userIdOrName) {
   if (!userIdOrName) return "—";
   const str = String(userIdOrName);
-  // If it's a phone number, show last 4 digits
-  if (str.startsWith("+") || str.startsWith("44")) {
-    return `+${str.slice(-10)}`;
+  
+  if (str.includes(" ")) {
+    const parts = str.split(" ");
+    return `${parts[0]} ${parts[parts.length - 1].charAt(0)}`;
   }
+  
+  if (str.startsWith("+") || /^\d+$/.test(str)) {
+    return `+${str.slice(-4)}`;
+  }
+  
   return str;
 }
 
-function isMine(meValue, itemUserId) {
-  if (!meValue || !itemUserId) return false;
-  const me = String(meValue).toLowerCase().trim();
-  const user = String(itemUserId).toLowerCase().trim();
-  return user.includes(me) || me.includes(user);
+function isMine(currentUserPhone, item) {
+  if (!currentUserPhone) return false;
+  const myPhone = String(currentUserPhone).replace(/\s+/g, "");
+  
+  if (item.user_id) {
+    const itemPhone = String(item.user_id).replace(/\s+/g, "");
+    if (itemPhone === myPhone) return true;
+  }
+  
+  return false;
 }
 
-// Slider component
 function Slider({ label, value, setValue, min = 1, max = 10 }) {
   return (
     <div className="slider-field">
@@ -56,17 +66,18 @@ function Slider({ label, value, setValue, min = 1, max = 10 }) {
   );
 }
 
-// Item Detail Drawer
-function ItemDetail({ item, onClose, onSaved }) {
+function ItemDetail({ item, onClose, onSaved, currentUserPhone }) {
   const [editing, setEditing] = useState(false);
   const [ci, setCi] = useState(item.customer_impact ?? 5);
   const [te, setTe] = useState(item.team_energy ?? 5);
   const [fr, setFr] = useState(item.frequency ?? 5);
   const [ea, setEa] = useState(item.ease ?? 5);
+  const [title, setTitle] = useState(item.title || "");
   const [saving, setSaving] = useState(false);
+  
+  const canEditTitle = isMine(currentUserPhone, item);
 
   useEffect(() => {
-    // Fetch current values when drawer opens
     if (item.id) {
       fetch(`${API_BASE}/api/items/${item.id}/factors`)
         .then(r => r.json())
@@ -118,8 +129,20 @@ function ItemDetail({ item, onClose, onSaved }) {
         <div className="drawer-content">
           <div className="field">
             <label>Title</label>
-            <div className="title-locked">{item.title}</div>
-            <small className="note">Title locked for now</small>
+            {canEditTitle ? (
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="title-input"
+                placeholder="Enter title..."
+              />
+            ) : (
+              <>
+                <div className="title-locked">{item.title}</div>
+                <small className="note">Only the originator can edit the title</small>
+              </>
+            )}
           </div>
 
           <div className="field">
@@ -142,7 +165,7 @@ function ItemDetail({ item, onClose, onSaved }) {
             </div>
             <div>
               <div className="k">Leader to Unblock</div>
-              <div className="v">{item.leader_to_unblock ? "Yes" : "—"}</div>
+              <div className="v">{item.leader_to_unblock ? "Yes" : "No"}</div>
             </div>
             <div>
               <div className="k">Organisation</div>
@@ -191,23 +214,169 @@ function ItemDetail({ item, onClose, onSaved }) {
   );
 }
 
-// Main App
+function NewItemModal({ onClose, onSaved, currentUser }) {
+  const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    if (!currentUser) {
+      alert("Please select your name first");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/items/new`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          transcript: title.trim(),
+          user_id: currentUser.phone,
+          originator_name: currentUser.full_name,
+          org_slug: "stmichaels",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create item");
+      
+      onSaved();
+      onClose();
+    } catch (e) {
+      alert(`Failed to create item: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="drawer-overlay" onClick={onClose}>
+      <div className="drawer new-item-drawer" onClick={(e) => e.stopPropagation()}>
+        <div className="drawer-header">
+          <h2>New Item</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="drawer-content">
+          <div className="field">
+            <label>What's the idea or frustration?</label>
+            <textarea
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Type your idea or frustration here..."
+              className="new-item-textarea"
+              rows={4}
+              autoFocus
+            />
+          </div>
+
+          <div className="actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="btn-primary" 
+              disabled={!title.trim() || saving}
+            >
+              {saving ? "Creating..." : "Create Item"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function UserSelector({ profiles, onSelect, onClose }) {
+  const [selected, setSelected] = useState("");
+
+  function handleSelect() {
+    const user = profiles.find(p => p.id === selected);
+    if (user) {
+      onSelect(user);
+      onClose();
+    }
+  }
+
+  return (
+    <div className="drawer-overlay">
+      <div className="drawer user-selector-drawer" onClick={(e) => e.stopPropagation()}>
+        <div className="drawer-header">
+          <h2>Who are you?</h2>
+        </div>
+
+        <div className="drawer-content">
+          <div className="field">
+            <label>Select your name</label>
+            <select 
+              value={selected} 
+              onChange={(e) => setSelected(e.target.value)}
+              className="user-select"
+              autoFocus
+            >
+              <option value="">-- Choose your name --</option>
+              {profiles.map(profile => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="actions">
+            <button 
+              className="btn-primary btn-large" 
+              disabled={!selected}
+              onClick={handleSelect}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [items, setItems] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [showNewItem, setShowNewItem] = useState(false);
+  const [showUserSelector, setShowUserSelector] = useState(false);
   
-  // Filters and sorting
-  const [me, setMe] = useState(localStorage.getItem("felma_me") || "");
+  const [currentUser, setCurrentUser] = useState(() => {
+    const stored = localStorage.getItem("felma_user");
+    return stored ? JSON.parse(stored) : null;
+  });
+  
   const [view, setView] = useState(localStorage.getItem("felma_view") || "rank");
 
   useEffect(() => {
-    localStorage.setItem("felma_me", me);
-  }, [me]);
+    if (currentUser) {
+      localStorage.setItem("felma_user", JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem("felma_user");
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem("felma_view", view);
   }, [view]);
+
+  async function loadProfiles() {
+    try {
+      const response = await fetch(`${API_BASE}/api/profiles`);
+      const data = await response.json();
+      setProfiles(data.profiles || []);
+    } catch (e) {
+      console.error("Failed to load profiles:", e);
+    }
+  }
 
   async function loadItems() {
     setLoading(true);
@@ -224,32 +393,44 @@ export default function App() {
   }
 
   useEffect(() => {
+    loadProfiles();
     loadItems();
   }, []);
+
+  useEffect(() => {
+    if (!currentUser && profiles.length > 0) {
+      setShowUserSelector(true);
+    }
+  }, [currentUser, profiles]);
 
   const filteredAndSorted = useMemo(() => {
     let result = [...items];
 
-    // Apply "mine only" filter
-    if (view === "mine") {
-      result = result.filter(item => isMine(me, item.user_id || item.originator_name));
+    if (view === "mine" && currentUser) {
+      result = result.filter(item => isMine(currentUser.phone, item));
     }
 
-    // Apply sorting
     if (view === "rank" || view === "mine") {
-      // Sort by priority_rank (high to low)
       result.sort((a, b) => (b.priority_rank ?? 0) - (a.priority_rank ?? 0));
     } else if (view === "newest") {
-      // Sort by created_at (newest first)
       result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
 
     return result;
-  }, [items, view, me]);
+  }, [items, view, currentUser]);
 
   function handleSaved() {
     setSelectedItem(null);
-    loadItems(); // Reload to get updated values
+    setShowNewItem(false);
+    loadItems();
+  }
+
+  function handleUserChange() {
+    setShowUserSelector(true);
+  }
+
+  function handleUserSelect(user) {
+    setCurrentUser(user);
   }
 
   return (
@@ -261,16 +442,16 @@ export default function App() {
         </div>
 
         <div className="controls">
-          <label className="control-field">
-            <span>Me:</span>
-            <input
-              type="text"
-              value={me}
-              onChange={(e) => setMe(e.target.value)}
-              placeholder="+447827276691"
-              className="me-input"
-            />
-          </label>
+          <div className="current-user-display">
+            <span className="user-label">You:</span>
+            <button 
+              className="user-name-btn"
+              onClick={handleUserChange}
+              title="Change user"
+            >
+              {currentUser ? currentUser.display_name : "Not selected"}
+            </button>
+          </div>
 
           <select 
             value={view} 
@@ -281,6 +462,15 @@ export default function App() {
             <option value="newest">By Date (newest first)</option>
             <option value="mine">Mine Only</option>
           </select>
+
+          <button 
+            onClick={() => setShowNewItem(true)}
+            className="btn-new"
+            disabled={!currentUser}
+            title={!currentUser ? "Select your name first" : "Create new item"}
+          >
+            + New Item
+          </button>
 
           <button 
             onClick={loadItems} 
@@ -294,7 +484,7 @@ export default function App() {
 
       <main className="items-grid">
         {filteredAndSorted.map(item => {
-          const mine = isMine(me, item.user_id || item.originator_name);
+          const mine = currentUser ? isMine(currentUser.phone, item) : false;
           
           return (
             <div 
@@ -307,6 +497,9 @@ export default function App() {
                   <span className="rank">RANK {item.priority_rank ?? "—"}</span>
                   <span className="tier">{item.action_tier || "—"}</span>
                 </div>
+                {item.leader_to_unblock && (
+                  <span className="leader-badge">🔓 Leader</span>
+                )}
               </div>
 
               <h3 className="item-title">{item.title}</h3>
@@ -324,7 +517,9 @@ export default function App() {
         {!loading && filteredAndSorted.length === 0 && (
           <div className="empty-state">
             <p>No items found</p>
-            {view === "mine" && <p className="note">Try entering your phone number or name in "Me"</p>}
+            {view === "mine" && (
+              <p className="note">You haven't created any items yet</p>
+            )}
           </div>
         )}
       </main>
@@ -334,6 +529,23 @@ export default function App() {
           item={selectedItem} 
           onClose={() => setSelectedItem(null)}
           onSaved={handleSaved}
+          currentUserPhone={currentUser?.phone}
+        />
+      )}
+
+      {showNewItem && (
+        <NewItemModal
+          onClose={() => setShowNewItem(false)}
+          onSaved={handleSaved}
+          currentUser={currentUser}
+        />
+      )}
+
+      {showUserSelector && (
+        <UserSelector
+          profiles={profiles}
+          onSelect={handleUserSelect}
+          onClose={() => setShowUserSelector(false)}
         />
       )}
     </div>
