@@ -1,4 +1,4 @@
-// src/LifecycleStages.jsx - NEW FILE
+// src/LifecycleStages.jsx - FIXED VERSION
 import { useState } from "react";
 import { API, postJSON } from "./logic";
 
@@ -7,7 +7,7 @@ export default function LifecycleStages({ item, onUpdate }) {
   const [working, setWorking] = useState(false);
   const [activeNote, setActiveNote] = useState("");
 
-  const currentStage = item.stage || 1;
+  const currentStage = Number(item.stage) || 1;
 
   const stages = [
     { num: 1, name: "Capture", description: "Item captured", auto: true },
@@ -31,7 +31,7 @@ export default function LifecycleStages({ item, onUpdate }) {
         note: activeNote.trim(),
       });
       setActiveNote("");
-      onUpdate?.();
+      if (onUpdate) onUpdate();
     } catch (e) {
       alert(`Failed to save: ${e.message}`);
     } finally {
@@ -75,6 +75,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                         value={activeNote}
                         onChange={(e) => setActiveNote(e.target.value)}
                         disabled={working}
+                        rows={3}
                       />
                       <button
                         className="stage-save-btn"
@@ -86,7 +87,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                     </>
                   ) : (
                     <div className="stage-prompt" style={{ opacity: 0.5 }}>
-                      {s.prompt}
+                      {s.prompt || s.description}
                     </div>
                   )}
                 </div>
