@@ -1,205 +1,340 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { fetchItems, fetchPeople, createItem, updateFactors } from "./logic";
+// felma-ui/src/App.jsx
+// Complete working version with sorting/filtering and all features
 
-const ORG_NAME = "St Michael’s – Frideas";
+import { useEffect, useMemo, useState } from "react";
+import "./index.css";
 
-export default function App() {
-  const [items, setItems] = useState([]);
-  const [people, setPeople] = useState([]);
-  const [me, setMe] = useState("+447827276091"); // user’s phone; free text box on header
-  const [drawer, setDrawer] = useState({ open: false, mode: "new", item: null });
+const API_BASE = import.meta.env.VITE_API_BASE || "https://felma-backend.onrender.com";
+const ORG_NAME = "St Michael's – Frideas";
 
-  // load
-  async function load() {
-    const [it, peeps] = await Promise.all([fetchItems(), fetchPeople()]);
-    setItems(it);
-    setPeople(peeps);
+function fmtDate(dateStr) {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, "0");
+    const mon = d.toLocaleDateString("en-GB", { month: "short" });
+    const yr = String(d.getFullYear()).slice(-2);
+    return `${day}-${mon}-'${yr}`;
+  } catch {
+    return "—";
   }
-  useEffect(() => { load(); }, []);
+}
 
-  // helpers
-  const nameByPhone = useMemo(() => {
-    const m = new Map();
-    for (const p of people) {
-      if (p.phone) m.set(String(p.phone), p.display_name || p.full_name || p.email || p.phone);
-    }
-    return m;
-  }, [people]);
-
-  const meName = nameByPhone.get(me) || me;
-
-  function originatorPill(item) {
-    const phone = item.user_id ? String(item.user_id) : null;
-    const label = phone ? (nameByPhone.get(phone) || phone) : "—";
-    const isMe = phone && phone === me;
-    return <span className={`pill originator ${isMe ? "me" : ""}`}>{label}</span>;
+function displayName(userIdOrName) {
+  if (!userIdOrName) return "—";
+  const str = String(userIdOrName);
+  // If it's a phone number, show last 4 digits
+  if (str.startsWith("+") || str.startsWith("44")) {
+    return `+${str.slice(-10)}`;
   }
+  return str;
+}
 
-  function tierPill(t) {
-    if (!t) return <span className="pill tier">Tier</span>;
-    return <span className="pill tier">{t}</span>;
-  }
+function isMine(meValue, itemUserId) {
+  if (!meValue || !itemUserId) return false;
+  const me = String(meValue).toLowerCase().trim();
+  const user = String(itemUserId).toLowerCase().trim();
+  return user.includes(me) || me.includes(user);
+}
 
-  function rankPill(n) {
-    if (typeof n !== "number" || Number.isNaN(n)) return <span className="pill rank">RANK —</span>;
-    return <span className="pill rank">RANK {n}</span>;
-  }
-
-  function leaderPill(flag) {
-    return flag ? <span className="pill unblock">Leader to Unblock</span> : null;
-  }
-
-  function openNew() {
-    setDrawer({
-      open: true,
-      mode: "new",
-      item: {
-        title: "",
-        customer_impact: 0, team_energy: 0, frequency: 0, ease: 0
-      }
-    });
-  }
-  function openEdit(it) {
-    setDrawer({
-      open: true,
-      mode: "edit",
-      item: {
-        id: it.id,
-        title: it.title || "",
-        customer_impact: it.customer_impact ?? 0,
-        team_energy: it.team_energy ?? 0,
-        frequency: it.frequency ?? 0,
-        ease: it.ease ?? 0
-      }
-    });
-  }
-
+// Slider component
+function Slider({ label, value, setValue, min = 1, max = 10 }) {
   return (
-    <div className="app">
-      {/* header */}
-      <div className="header">
-        <div className="h-brand">Felma</div>
-        <div className="h-org">{ORG_NAME}</div>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, color: "#86a8b3" }}>Me:</span>
-        <input className="me" value={me} onChange={e=>setMe(e.target.value)} />
-        <button className="refresh" onClick={load}>Refresh</button>
-        <button className="btn" onClick={openNew}>+ New</button>
-      </div>
-
-      {/* grid */}
-      {items.length === 0 ? (
-        <div style={{ color:"#86a8b3", marginTop: 24 }}>No items yet.</div>
-      ) : (
-        <div className="grid">
-          {items.map(it => (
-            <div className="card" key={it.id} onClick={()=>openEdit(it)}>
-              <div className="row">
-                {rankPill(it.priority_rank)}
-                {tierPill(it.action_tier)}
-                {leaderPill(it.leader_to_unblock)}
-              </div>
-              <div className="title">{it.title || "(untitled)"}</div>
-              <div className="row" style={{ marginTop: 6, gap: 8 }}>
-                {originatorPill(it)}
-                <span className="meta">{new Date(it.created_at).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"2-digit"})}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Drawer */}
-      <Drawer state={drawer} setState={setDrawer} me={me} onSaved={async()=>{
-        await load();
-      }}/>
+    <div className="slider-field">
+      <label>
+        <span>{label}</span>
+        <span className="slider-value">{value}</span>
+      </label>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => setValue(parseInt(e.target.value, 10))}
+      />
     </div>
   );
 }
 
-function Drawer({ state, setState, me, onSaved }) {
-  const { open, mode } = state;
-  const isNew = mode === "new";
-  const [title, setTitle] = useState("");
-  const [ci, setCI] = useState(0);
-  const [te, setTE] = useState(0);
-  const [fr, setFR] = useState(0);
-  const [ea, setEA] = useState(0);
+// Item Detail Drawer
+function ItemDetail({ item, onClose, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [ci, setCi] = useState(item.customer_impact ?? 5);
+  const [te, setTe] = useState(item.team_energy ?? 5);
+  const [fr, setFr] = useState(item.frequency ?? 5);
+  const [ea, setEa] = useState(item.ease ?? 5);
   const [saving, setSaving] = useState(false);
 
-  // sync when opening
-  useEffect(()=>{
-    if (!open) return;
-    setTitle(state.item?.title || "");
-    setCI(state.item?.customer_impact ?? 0);
-    setTE(state.item?.team_energy ?? 0);
-    setFR(state.item?.frequency ?? 0);
-    setEA(state.item?.ease ?? 0);
-  }, [open]);
+  useEffect(() => {
+    // Fetch current values when drawer opens
+    if (item.id) {
+      fetch(`${API_BASE}/api/items/${item.id}/factors`)
+        .then(r => r.json())
+        .then(data => {
+          setCi(data.customer_impact ?? 5);
+          setTe(data.team_energy ?? 5);
+          setFr(data.frequency ?? 5);
+          setEa(data.ease ?? 5);
+        })
+        .catch(console.error);
+    }
+  }, [item.id]);
 
-  function close(){ setState(s=>({ ...s, open:false })); }
-
-  const factorsValid = ci>0 && te>0 && fr>0 && ea>0 && ci<=10 && te<=10 && fr<=10 && ea<=10;
-  const canSave = isNew ? (title.trim().length>0 && factorsValid) : factorsValid;
-
-  async function onSave(){
-    if (!canSave || saving) return;
+  async function saveScores() {
     setSaving(true);
-    try{
-      if (isNew){
-        await createItem({
-          title: title.trim(),
-          customer_impact: ci, team_energy: te, frequency: fr, ease: ea,
-          user_id: me
-        });
-      } else {
-        // Title editing for existing items would need a backend route — keeping factors only.
-        await updateFactors(state.item.id, { customer_impact: ci, team_energy: te, frequency: fr, ease: ea });
-      }
-      close();
-      await onSaved?.();
-    } catch (e){
-      alert(`Save failed: ${e.message||e}`);
+    try {
+      const response = await fetch(`${API_BASE}/api/items/${item.id}/factors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_impact: ci,
+          team_energy: te,
+          frequency: fr,
+          ease: ea,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Save failed");
+      
+      setEditing(false);
+      if (onSaved) onSaved();
+    } catch (e) {
+      alert(`Save failed: ${e.message}`);
     } finally {
       setSaving(false);
     }
   }
 
+  const canSave = ci >= 1 && ci <= 10 && te >= 1 && te <= 10 && fr >= 1 && fr <= 10 && ea >= 1 && ea <= 10;
+
   return (
-    <div className={`drawer ${open ? "open":""}`}>
-      {open && <div className="overlay" onClick={close} />}
-      {open && (
-        <div className="panel">
-          <h3>{isNew ? "New item" : "Edit item"}</h3>
-
-          <div className="group">
-            <div className="label"><span>Story / title</span>{!isNew && <span style={{fontSize:12,color:"#8fb1bb"}}>title locked for now</span>}</div>
-            <input className="input" placeholder="Short title…" value={title} onChange={e=>setTitle(e.target.value)} disabled={!isNew}/>
-          </div>
-
-          <div className="group">
-            <div className="label"><span>Customer impact</span><strong>{ci}</strong></div>
-            <div className="slider-row"><input type="range" min="0" max="10" value={ci} onChange={e=>setCI(Number(e.target.value))} /></div>
-          </div>
-          <div className="group">
-            <div className="label"><span>Team energy</span><strong>{te}</strong></div>
-            <div className="slider-row"><input type="range" min="0" max="10" value={te} onChange={e=>setTE(Number(e.target.value))} /></div>
-          </div>
-          <div className="group">
-            <div className="label"><span>Frequency</span><strong>{fr}</strong></div>
-            <div className="slider-row"><input type="range" min="0" max="10" value={fr} onChange={e=>setFR(Number(e.target.value))} /></div>
-          </div>
-          <div className="group">
-            <div className="label"><span>Ease</span><strong>{ea}</strong></div>
-            <div className="slider-row"><input type="range" min="0" max="10" value={ea} onChange={e=>setEA(Number(e.target.value))} /></div>
-            <div className="slider-note">Set all four (1–10). Save is disabled until you do.</div>
-          </div>
-
-          <div className="actions">
-            <button className="btn-secondary" onClick={close}>Cancel</button>
-            <button className="btn-primary" disabled={!canSave || saving} onClick={onSave}>{saving ? "Saving…" : "Save"}</button>
-          </div>
+    <div className="drawer-overlay" onClick={onClose}>
+      <div className="drawer" onClick={(e) => e.stopPropagation()}>
+        <div className="drawer-header">
+          <h2>Item Details</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
         </div>
+
+        <div className="drawer-content">
+          <div className="field">
+            <label>Title</label>
+            <div className="title-locked">{item.title}</div>
+            <small className="note">Title locked for now</small>
+          </div>
+
+          <div className="field">
+            <label>Story / Idea</label>
+            <div className="note">{item.transcript || "—"}</div>
+          </div>
+
+          <div className="meta-grid">
+            <div>
+              <div className="k">Originator</div>
+              <div className="v">{displayName(item.originator_name || item.user_id)}</div>
+            </div>
+            <div>
+              <div className="k">Tier</div>
+              <div className="v">{item.action_tier || "—"}</div>
+            </div>
+            <div>
+              <div className="k">Rank</div>
+              <div className="v">{item.priority_rank ?? 0}</div>
+            </div>
+            <div>
+              <div className="k">Leader to Unblock</div>
+              <div className="v">{item.leader_to_unblock ? "Yes" : "—"}</div>
+            </div>
+            <div>
+              <div className="k">Organisation</div>
+              <div className="v">{ORG_NAME}</div>
+            </div>
+            <div>
+              <div className="k">Created</div>
+              <div className="v">{fmtDate(item.created_at)}</div>
+            </div>
+          </div>
+
+          {!editing && (
+            <div className="actions">
+              <button className="btn-primary" onClick={() => setEditing(true)}>
+                Edit scores
+              </button>
+            </div>
+          )}
+
+          {editing && (
+            <>
+              <div className="sliders-section">
+                <Slider label="Customer impact" value={ci} setValue={setCi} />
+                <Slider label="Team energy" value={te} setValue={setTe} />
+                <Slider label="Frequency" value={fr} setValue={setFr} />
+                <Slider label="Ease" value={ea} setValue={setEa} />
+              </div>
+              <small className="note">Set all four (1–10). Save is disabled until you do.</small>
+              <div className="actions">
+                <button className="btn-ghost" onClick={() => setEditing(false)}>
+                  Cancel
+                </button>
+                <button 
+                  className="btn-primary" 
+                  disabled={!canSave || saving}
+                  onClick={saveScores}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main App
+export default function App() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState(null);
+  
+  // Filters and sorting
+  const [me, setMe] = useState(localStorage.getItem("felma_me") || "");
+  const [view, setView] = useState(localStorage.getItem("felma_view") || "rank");
+
+  useEffect(() => {
+    localStorage.setItem("felma_me", me);
+  }, [me]);
+
+  useEffect(() => {
+    localStorage.setItem("felma_view", view);
+  }, [view]);
+
+  async function loadItems() {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/list`);
+      const data = await response.json();
+      setItems(data.items || []);
+    } catch (e) {
+      console.error("Load failed:", e);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  const filteredAndSorted = useMemo(() => {
+    let result = [...items];
+
+    // Apply "mine only" filter
+    if (view === "mine") {
+      result = result.filter(item => isMine(me, item.user_id || item.originator_name));
+    }
+
+    // Apply sorting
+    if (view === "rank" || view === "mine") {
+      // Sort by priority_rank (high to low)
+      result.sort((a, b) => (b.priority_rank ?? 0) - (a.priority_rank ?? 0));
+    } else if (view === "newest") {
+      // Sort by created_at (newest first)
+      result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    return result;
+  }, [items, view, me]);
+
+  function handleSaved() {
+    setSelectedItem(null);
+    loadItems(); // Reload to get updated values
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="brand">
+          <div className="title">Felma</div>
+          <div className="org">{ORG_NAME}</div>
+        </div>
+
+        <div className="controls">
+          <label className="control-field">
+            <span>Me:</span>
+            <input
+              type="text"
+              value={me}
+              onChange={(e) => setMe(e.target.value)}
+              placeholder="+447827276691"
+              className="me-input"
+            />
+          </label>
+
+          <select 
+            value={view} 
+            onChange={(e) => setView(e.target.value)}
+            className="view-select"
+          >
+            <option value="rank">By Rank (high → low)</option>
+            <option value="newest">By Date (newest first)</option>
+            <option value="mine">Mine Only</option>
+          </select>
+
+          <button 
+            onClick={loadItems} 
+            disabled={loading}
+            className="btn-refresh"
+          >
+            {loading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+      </header>
+
+      <main className="items-grid">
+        {filteredAndSorted.map(item => {
+          const mine = isMine(me, item.user_id || item.originator_name);
+          
+          return (
+            <div 
+              key={item.id} 
+              className="item-card"
+              onClick={() => setSelectedItem(item)}
+            >
+              <div className="item-header">
+                <div className="rank-tier">
+                  <span className="rank">RANK {item.priority_rank ?? "—"}</span>
+                  <span className="tier">{item.action_tier || "—"}</span>
+                </div>
+              </div>
+
+              <h3 className="item-title">{item.title}</h3>
+
+              <div className="item-footer">
+                <span className={`originator-pill ${mine ? "mine" : ""}`}>
+                  {displayName(item.originator_name || item.user_id)}
+                </span>
+                <span className="date">{fmtDate(item.created_at)}</span>
+              </div>
+            </div>
+          );
+        })}
+
+        {!loading && filteredAndSorted.length === 0 && (
+          <div className="empty-state">
+            <p>No items found</p>
+            {view === "mine" && <p className="note">Try entering your phone number or name in "Me"</p>}
+          </div>
+        )}
+      </main>
+
+      {selectedItem && (
+        <ItemDetail 
+          item={selectedItem} 
+          onClose={() => setSelectedItem(null)}
+          onSaved={handleSaved}
+        />
       )}
     </div>
   );
