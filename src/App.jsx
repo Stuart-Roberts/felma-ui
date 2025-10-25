@@ -1,5 +1,5 @@
 // felma-ui/src/App.jsx
-// Complete version with all fixes
+// Complete version with improved new item flow
 
 import { useEffect, useMemo, useState } from "react";
 import "./index.css";
@@ -227,13 +227,17 @@ function ItemDetail({ item, onClose, onSaved, currentUserPhone }) {
 
 function NewItemModal({ onClose, onSaved, currentUser }) {
   const [title, setTitle] = useState("");
+  const [ci, setCi] = useState(5);
+  const [te, setTe] = useState(5);
+  const [fr, setFr] = useState(5);
+  const [ea, setEa] = useState(5);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!title.trim()) return;
     if (!currentUser) {
-      alert("Please select your name first");
+      alert("Please select your name from the dropdown first");
       return;
     }
 
@@ -248,6 +252,10 @@ function NewItemModal({ onClose, onSaved, currentUser }) {
           user_id: currentUser.phone,
           originator_name: currentUser.full_name,
           org_slug: "stmichaels",
+          customer_impact: ci,
+          team_energy: te,
+          frequency: fr,
+          ease: ea,
         }),
       });
 
@@ -261,6 +269,8 @@ function NewItemModal({ onClose, onSaved, currentUser }) {
       setSaving(false);
     }
   }
+
+  const canSave = title.trim() && ci >= 1 && ci <= 10 && te >= 1 && te <= 10 && fr >= 1 && fr <= 10 && ea >= 1 && ea <= 10;
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -283,6 +293,19 @@ function NewItemModal({ onClose, onSaved, currentUser }) {
             />
           </div>
 
+          <div className="field">
+            <label>Let's make sure we understand how this affects things</label>
+          </div>
+
+          <div className="sliders-section">
+            <Slider label="How much does this affect customers or people we serve?" value={ci} setValue={setCi} />
+            <Slider label="How much does this raise or drain your team's energy?" value={te} setValue={setTe} />
+            <Slider label="How often do you think about this?" value={fr} setValue={setFr} />
+            <Slider label="How easy should it be to make progress on this?" value={ea} setValue={setEa} />
+          </div>
+
+          <small className="note">Rate all four factors (1–10) to calculate priority rank automatically.</small>
+
           <div className="actions">
             <button type="button" className="btn-ghost" onClick={onClose}>
               Cancel
@@ -290,9 +313,9 @@ function NewItemModal({ onClose, onSaved, currentUser }) {
             <button 
               type="submit" 
               className="btn-primary" 
-              disabled={!title.trim() || saving}
+              disabled={!canSave || saving}
             >
-              {saving ? "Creating..." : "Create Item"}
+              {saving ? "Creating..." : "Create & Rank"}
             </button>
           </div>
         </form>
