@@ -1,6 +1,7 @@
-// src/ItemDetail.jsx - COMPLETE FILE
+// src/ItemDetail.jsx - COMPLETE FILE WITH LIFECYCLE
 import { useState } from "react";
 import { API, fmtDate, isMine, postJSON, displayName } from "./logic";
+import LifecycleStages from "./LifecycleStages";
 
 export default function ItemDetail({ item, me, onClose, onUpdated }) {
   const [working, setWorking] = useState(false);
@@ -119,6 +120,8 @@ export default function ItemDetail({ item, me, onClose, onUpdated }) {
           </button>
         </div>
       </div>
+
+      <LifecycleStages item={item} onUpdate={onUpdated} />
     </div>
   );
 }
