@@ -1,5 +1,5 @@
 // felma-ui/src/App.jsx
-// Version with user selector dropdown
+// Complete version with all fixes
 
 import { useEffect, useMemo, useState } from "react";
 import "./index.css";
@@ -94,6 +94,17 @@ function ItemDetail({ item, onClose, onSaved, currentUserPhone }) {
   async function saveScores() {
     setSaving(true);
     try {
+      // Save title if it changed and user can edit
+      if (canEditTitle && title !== item.title) {
+        const titleResponse = await fetch(`${API_BASE}/api/items/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: title.trim() }),
+        });
+        if (!titleResponse.ok) console.error("Failed to save title");
+      }
+
+      // Save scores
       const response = await fetch(`${API_BASE}/api/items/${item.id}/factors`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -494,7 +505,7 @@ export default function App() {
             >
               <div className="item-header">
                 <div className="rank-tier">
-                  <span className="rank">RANK {item.priority_rank ?? "—"}</span>
+                  <span className="rank">{item.priority_rank ?? "—"} rank</span>
                   <span className="tier">{item.action_tier || "—"}</span>
                 </div>
                 {item.leader_to_unblock && (
@@ -506,7 +517,7 @@ export default function App() {
 
               <div className="item-footer">
                 <span className={`originator-pill ${mine ? "mine" : ""}`}>
-                  {displayName(item.originator_name || item.user_id)}
+                  {mine && currentUser ? currentUser.display_name : displayName(item.originator_name || item.user_id)}
                 </span>
                 <span className="date">{fmtDate(item.created_at)}</span>
               </div>
