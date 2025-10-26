@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { API, fetchJSON, postJSON, createItem } from "./logic";
+import { API, fetchJSON, createItem } from "./logic";
 import ItemDetail from "./ItemDetail";
 
 export default function App() {
@@ -18,8 +18,8 @@ export default function App() {
 
   async function loadItems() {
     try {
-      const { items: arr } = await fetchJSON(`${API}/list`);
-      setItems(arr || []);
+      const data = await fetchJSON(`${API}/list`);
+      setItems(data.items || []);
     } catch (e) {
       console.error("load failed:", e);
     }
@@ -27,10 +27,10 @@ export default function App() {
 
   async function handleUpdated() {
     try {
-      const { items: arr } = await fetchJSON(`${API}/list`);
-      setItems(arr || []);
+      const data = await fetchJSON(`${API}/list`);
+      setItems(data.items || []);
       if (openItem) {
-        const updated = arr.find(i => i.id === openItem.id);
+        const updated = (data.items || []).find(i => i.id === openItem.id);
         if (updated) setOpenItem(updated);
       }
     } catch (e) {
