@@ -26,11 +26,15 @@ export default function App() {
   }
 
   async function handleUpdated() {
-    await loadItems();
-    if (openItem) {
-      const fresh = await fetchJSON(`${API}/list`);
-      const updated = fresh.items?.find(i => i.id === openItem.id);
-      if (updated) setOpenItem(updated);
+    try {
+      const { items: arr } = await fetchJSON(`${API}/list`);
+      setItems(arr || []);
+      if (openItem) {
+        const updated = arr.find(i => i.id === openItem.id);
+        if (updated) setOpenItem(updated);
+      }
+    } catch (e) {
+      console.error("refresh failed:", e);
     }
   }
 
