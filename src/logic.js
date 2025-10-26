@@ -1,5 +1,5 @@
 // src/logic.js - COMPLETE FILE
-export const API = "https://felma-backend.onrender.com";
+export const API = "https://felma-backend.onrender.com/api";
 
 // Priority rank formula (agreed)
 export function computePriorityRank(customer_impact, team_energy, frequency, ease) {
