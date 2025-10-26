@@ -20,21 +20,25 @@ export default function LifecycleStages({ item, onUpdate }) {
     { num: 9, name: "Share Story", description: "Story summary (auto-generated)", auto: true },
   ];
 
+  // Calculate completed stages
+  // Stages 1-2 complete when currentStage >= 3
+  // Stage 3 complete when currentStage >= 4, etc.
+  const completedCount = currentStage === 1 ? 1 : currentStage - 1;
+
   useEffect(() => {
-    console.log("Item data:", item);
-  }, [item]);
+    console.log("Item stage:", currentStage, "Completed:", completedCount);
+  }, [item, currentStage, completedCount]);
 
   async function saveStageNote(stageNum, fieldName) {
     const note = (notes[stageNum] || "").trim();
     if (!note || working) return;
-
     setWorking(true);
     try {
       const payload = {
-        stage: stageNum + 1,
+        stage: stageNum,
         note: note
       };
-      console.log("Saving:", payload);
+      console.log("Saving stage note:", payload);
       await postJSON(`${API}/items/${item.id}/stage`, payload);
       setNotes({ ...notes, [stageNum]: "" });
       await onUpdate();
@@ -49,7 +53,7 @@ export default function LifecycleStages({ item, onUpdate }) {
     <div className="lifecycle-section">
       <div className="lifecycle-header" onClick={() => setExpanded(!expanded)}>
         <span>Lifecycle Progress</span>
-        <span className="stage-count">{currentStage}/9</span>
+        <span className="stage-count">{completedCount}/9</span>
         <span className="expand-icon">{expanded ? "▼" : "▶"}</span>
       </div>
 
@@ -61,10 +65,6 @@ export default function LifecycleStages({ item, onUpdate }) {
             const savedNote = s.field ? item[s.field] : null;
             const activeNote = notes[s.num] || "";
 
-            if (isComplete) {
-              console.log(`Stage ${s.num} (${s.name}):`, savedNote);
-            }
-
             return (
               <div
                 key={s.num}
@@ -73,7 +73,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                 <div className="stage-number">{s.num}</div>
                 <div className="stage-content">
                   <div className="stage-name">{s.name}</div>
-
+                  
                   {s.auto ? (
                     <div className="stage-auto">{s.description}</div>
                   ) : isComplete ? (
@@ -81,6 +81,11 @@ export default function LifecycleStages({ item, onUpdate }) {
                   ) : isCurrent ? (
                     <>
                       <div className="stage-prompt">{s.prompt}</div>
+                      {savedNote && (
+                        <div className="stage-note" style={{ marginBottom: 8, fontStyle: "italic" }}>
+                          Previous: {savedNote}
+                        </div>
+                      )}
                       <textarea
                         placeholder="Add your thoughts..."
                         value={activeNote}
