@@ -17,7 +17,7 @@ export default function ItemDetail({ item, me, onClose, onUpdated }) {
     if (!allSet || working) return;
     setWorking(true);
     try {
-      await postJSON(`${API}/items/${item.id}/factors`, {
+      await postJSON(`${API}/items/${item.id}/ratings`, {
         customer_impact: ci,
         team_energy: te,
         frequency: fr,
