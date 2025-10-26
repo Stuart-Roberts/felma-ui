@@ -3,25 +3,7 @@ import { API, postJSON } from "./logic";
 
 export default function LifecycleStages({ item, onUpdate }) {
   const [expanded, setExpanded] = useState(false);
-  const [notes, setNotes] = useState(() => {
-  // Pre-populate notes with saved stage data
-  const initialNotes = {};
-  const stages = [
-    { num: 3, field: "stage_3_involve" },
-    { num: 4, field: "stage_4_choose" },
-    { num: 5, field: "stage_5_prepare" },
-    { num: 6, field: "stage_6_act" },
-    { num: 7, field: "stage_7_learn" },
-    { num: 8, field: "stage_8_recognise" },
-    { num: 9, field: "stage_9_share_story" }
-  ];
-  stages.forEach(s => {
-    if (item[s.field]) {
-      initialNotes[s.num] = item[s.field];
-    }
-  });
-  return initialNotes;
-});
+  const [notes, setNotes] = useState({});
   const [working, setWorking] = useState(false);
 
   const currentStage = Number(item.stage) || 1;
@@ -38,14 +20,20 @@ export default function LifecycleStages({ item, onUpdate }) {
     { num: 9, name: "Share Story", description: "Story summary (auto-generated)", auto: true },
   ];
 
-  // Calculate completed stages
-  // Stages 1-2 complete when currentStage >= 3
-  // Stage 3 complete when currentStage >= 4, etc.
   const completedCount = currentStage === 1 ? 1 : currentStage - 1;
 
+  // Pre-populate notes with saved values when item loads
   useEffect(() => {
-    console.log("Item stage:", currentStage, "Completed:", completedCount);
-  }, [item, currentStage, completedCount]);
+    const initialNotes = {};
+    if (item.stage_3_involve) initialNotes[3] = item.stage_3_involve;
+    if (item.stage_4_choose) initialNotes[4] = item.stage_4_choose;
+    if (item.stage_5_prepare) initialNotes[5] = item.stage_5_prepare;
+    if (item.stage_6_act) initialNotes[6] = item.stage_6_act;
+    if (item.stage_7_learn) initialNotes[7] = item.stage_7_learn;
+    if (item.stage_8_recognise) initialNotes[8] = item.stage_8_recognise;
+    if (item.stage_9_share_story) initialNotes[9] = item.stage_9_share_story;
+    setNotes(initialNotes);
+  }, [item.id]);
 
   async function saveStageNote(stageNum, fieldName) {
     const note = (notes[stageNum] || "").trim();
@@ -56,7 +44,6 @@ export default function LifecycleStages({ item, onUpdate }) {
         stage: stageNum,
         note: note
       };
-      console.log("Saving stage note:", payload);
       await postJSON(`${API}/items/${item.id}/stage`, payload);
       setNotes({ ...notes, [stageNum]: "" });
       await onUpdate();
@@ -95,40 +82,35 @@ export default function LifecycleStages({ item, onUpdate }) {
                   {s.auto ? (
                     <div className="stage-auto">{s.description}</div>
                   ) : isComplete ? (
-      <>
-  <div className="stage-prompt" style={{ fontSize: "0.9em", opacity: 0.7 }}>{s.prompt}</div>
-  {savedNote && (
-    <div className="stage-note" style={{ marginBottom: 8, fontStyle: "italic" }}>
-      Previous: {savedNote}
-    </div>
-  )}
-  <textarea
-    placeholder="Edit your note..."
-    value={notes[s.num] !== undefined ? notes[s.num] : (savedNote || "")}
-    onChange={(e) => setNotes({ ...notes, [s.num]: e.target.value })}
-    disabled={working}
-    rows={3}
-  />
-  <button
-    className="stage-save-btn"
-    disabled={(!activeNote?.trim() || working)}
-    onClick={() => saveStageNote(s.num, s.field)}
-    style={{ marginTop: 8 }}
-  >
-    {working ? "Saving..." : "Update"}
-  </button>
-</>
-                  ) : isCurrent ? (
                     <>
-                      <div className="stage-prompt">{s.prompt}</div>
+                      <div className="stage-prompt" style={{ fontSize: "0.9em", opacity: 0.7 }}>{s.prompt}</div>
                       {savedNote && (
                         <div className="stage-note" style={{ marginBottom: 8, fontStyle: "italic" }}>
                           Previous: {savedNote}
                         </div>
                       )}
                       <textarea
+                        placeholder="Edit your note..."
+                        value={notes[s.num] || ""}
+                        onChange={(e) => setNotes({ ...notes, [s.num]: e.target.value })}
+                        disabled={working}
+                        rows={3}
+                      />
+                      <button
+                        className="stage-save-btn"
+                        disabled={!activeNote.trim() || working}
+                        onClick={() => saveStageNote(s.num, s.field)}
+                        style={{ marginTop: 8 }}
+                      >
+                        {working ? "Saving..." : "Update"}
+                      </button>
+                    </>
+                  ) : isCurrent ? (
+                    <>
+                      <div className="stage-prompt">{s.prompt}</div>
+                      <textarea
                         placeholder="Add your thoughts..."
-                        value={notes[s.num] !== undefined ? notes[s.num] : (savedNote || "")}
+                        value={notes[s.num] || ""}
                         onChange={(e) => setNotes({ ...notes, [s.num]: e.target.value })}
                         disabled={working}
                         rows={3}
