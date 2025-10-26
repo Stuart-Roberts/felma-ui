@@ -34,17 +34,19 @@ body {
 .bar {
   background: rgba(0,0,0,0.2);
   border-bottom: 1px solid var(--line);
-  padding: 12px 20px;
+  padding: 8px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  flex-wrap: nowrap;
 }
 
 .left {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .app {
@@ -63,6 +65,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .who {
@@ -105,56 +108,6 @@ body {
   padding: 7px 14px;
   color: var(--text);
   font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.btn:hover {
-  background: rgba(255, 193, 7, 0.1);
-  border-color: var(--yellow);
-}
-
-.who {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.who .label {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.whoinp {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: var(--text);
-  font-size: 14px;
-  width: 140px;
-}
-
-.view {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: var(--text);
-  font-size: 14px;
-  cursor: pointer;
-  min-width: 160px;
-}
-
-.btn {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 16px;
-  color: var(--text);
-  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
