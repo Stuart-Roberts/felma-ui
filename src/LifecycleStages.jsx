@@ -3,8 +3,8 @@ import { API, postJSON } from "./logic";
 
 export default function LifecycleStages({ item, onUpdate }) {
   const [expanded, setExpanded] = useState(false);
+  const [notes, setNotes] = useState({});
   const [working, setWorking] = useState(false);
-  const [activeNote, setActiveNote] = useState("");
 
   const currentStage = Number(item.stage) || 1;
 
@@ -21,7 +21,7 @@ export default function LifecycleStages({ item, onUpdate }) {
   ];
 
   async function saveStageNote(stageNum) {
-    const note = activeNote.trim();
+    const note = (notes[stageNum] || "").trim();
     if (!note || working) return;
 
     setWorking(true);
@@ -30,10 +30,11 @@ export default function LifecycleStages({ item, onUpdate }) {
         stage: stageNum + 1,
         note: note,
       });
-      setActiveNote("");
-      if (onUpdate) onUpdate();
+      setNotes({ ...notes, [stageNum]: "" });
+      await onUpdate();
     } catch (e) {
       alert(`Save failed: ${e.message}`);
+    } finally {
       setWorking(false);
     }
   }
@@ -52,6 +53,7 @@ export default function LifecycleStages({ item, onUpdate }) {
             const isComplete = currentStage > s.num;
             const isCurrent = currentStage === s.num;
             const savedNote = s.field ? item[s.field] : null;
+            const activeNote = notes[s.num] || "";
 
             return (
               <div
@@ -72,7 +74,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                       <textarea
                         placeholder="Add your thoughts..."
                         value={activeNote}
-                        onChange={(e) => setActiveNote(e.target.value)}
+                        onChange={(e) => setNotes({ ...notes, [s.num]: e.target.value })}
                         disabled={working}
                         rows={3}
                       />
