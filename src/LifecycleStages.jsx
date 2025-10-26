@@ -86,7 +86,7 @@ export default function LifecycleStages({ item, onUpdate }) {
   )}
   <textarea
     placeholder="Edit your note..."
-    value={activeNote !== undefined ? activeNote : (savedNote || "")}
+    value={notes[s.num] !== undefined ? notes[s.num] : (savedNote || "")}
     onChange={(e) => setNotes({ ...notes, [s.num]: e.target.value })}
     disabled={working}
     rows={3}
@@ -110,7 +110,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                       )}
                       <textarea
                         placeholder="Add your thoughts..."
-                        value={activeNote !== undefined ? activeNote : (savedNote || "")}
+                        value={notes[s.num] !== undefined ? notes[s.num] : (savedNote || "")}
                         onChange={(e) => setNotes({ ...notes, [s.num]: e.target.value })}
                         disabled={working}
                         rows={3}
