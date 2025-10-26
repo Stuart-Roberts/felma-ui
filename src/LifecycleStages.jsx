@@ -1,4 +1,3 @@
-// src/LifecycleStages.jsx - DEBUG VERSION
 import { useState } from "react";
 import { API, postJSON } from "./logic";
 
@@ -8,10 +7,6 @@ export default function LifecycleStages({ item, onUpdate }) {
   const [activeNote, setActiveNote] = useState("");
 
   const currentStage = Number(item.stage) || 1;
-
-  // DEBUG: Log to console
-  console.log("LifecycleStages - item.stage:", item.stage);
-  console.log("LifecycleStages - currentStage:", currentStage);
 
   const stages = [
     { num: 1, name: "Capture", description: "Item captured", auto: true },
@@ -26,19 +21,19 @@ export default function LifecycleStages({ item, onUpdate }) {
   ];
 
   async function saveStageNote(stageNum) {
-    if (!activeNote.trim() || working) return;
+    const note = activeNote.trim();
+    if (!note || working) return;
 
     setWorking(true);
     try {
       await postJSON(`${API}/items/${item.id}/stage`, {
-        stage: stageNum,
-        note: activeNote.trim(),
+        stage: stageNum + 1,
+        note: note,
       });
       setActiveNote("");
       if (onUpdate) onUpdate();
     } catch (e) {
-      alert(`Failed to save: ${e.message}`);
-    } finally {
+      alert(`Save failed: ${e.message}`);
       setWorking(false);
     }
   }
@@ -57,15 +52,6 @@ export default function LifecycleStages({ item, onUpdate }) {
             const isComplete = currentStage > s.num;
             const isCurrent = currentStage === s.num;
             const savedNote = s.field ? item[s.field] : null;
-
-            // DEBUG: Log for stage 3
-            if (s.num === 3) {
-              console.log("Stage 3 - currentStage:", currentStage);
-              console.log("Stage 3 - s.num:", s.num);
-              console.log("Stage 3 - isCurrent:", isCurrent);
-              console.log("Stage 3 - isComplete:", isComplete);
-              console.log("Stage 3 - s.auto:", s.auto);
-            }
 
             return (
               <div
@@ -100,7 +86,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                     </>
                   ) : (
                     <div className="stage-prompt" style={{ opacity: 0.5 }}>
-                      {s.prompt || s.description}
+                      {s.prompt}
                     </div>
                   )}
                 </div>
