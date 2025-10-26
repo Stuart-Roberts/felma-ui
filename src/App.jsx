@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { API, fetchJSON } from "./logic";
+import { API, fetchJSON, postJSON, createItem } from "./logic";
 import ItemDetail from "./ItemDetail";
-import AddItem from "./AddItem";
 
 export default function App() {
   const [items, setItems] = useState([]);
@@ -9,6 +8,11 @@ export default function App() {
   const [sort, setSort] = useState("rank");
   const [openItem, setOpenItem] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [newContent, setNewContent] = useState("");
+  const [ci, setCi] = useState(0);
+  const [te, setTe] = useState(0);
+  const [fr, setFr] = useState(0);
+  const [ea, setEa] = useState(0);
 
   useEffect(() => { loadItems(); }, []);
 
@@ -30,6 +34,19 @@ export default function App() {
     }
   }
 
+  async function handleAdd() {
+    if (!newContent.trim() || ci < 1 || te < 1 || fr < 1 || ea < 1) return;
+    try {
+      await createItem(newContent, me, ci, te, fr, ea);
+      setShowAdd(false);
+      setNewContent("");
+      setCi(0); setTe(0); setFr(0); setEa(0);
+      await loadItems();
+    } catch (e) {
+      alert(`Failed: ${e.message}`);
+    }
+  }
+
   const sorted = [...items].sort((a, b) => {
     if (sort === "rank") return (b.priority_rank || 0) - (a.priority_rank || 0);
     if (sort === "date") return new Date(b.created_at) - new Date(a.created_at);
@@ -47,12 +64,7 @@ export default function App() {
         <div className="controls">
           <div className="who">
             <span className="label">You:</span>
-            <input
-              className="whoinp"
-              placeholder="Your name"
-              value={me}
-              onChange={(e) => setMe(e.target.value)}
-            />
+            <input className="whoinp" placeholder="Your name" value={me} onChange={(e) => setMe(e.target.value)} />
           </div>
           <select className="view" value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="rank">By Rank (high → low)</option>
@@ -69,7 +81,6 @@ export default function App() {
           const tier = item.action_tier || "⚪ Park for later";
           const isLeader = item.leader_to_unblock;
           const owner = item.originator_name || item.user_id || "Unknown";
-
           return (
             <div key={item.id} className="card" onClick={() => setOpenItem(item)}>
               <div className="pills">
@@ -86,20 +97,40 @@ export default function App() {
       </div>
 
       {openItem && (
-        <ItemDetail
-          item={openItem}
-          me={me}
-          onClose={() => setOpenItem(null)}
-          onUpdated={handleUpdated}
-        />
+        <ItemDetail item={openItem} me={me} onClose={() => setOpenItem(null)} onUpdated={handleUpdated} />
       )}
 
       {showAdd && (
-        <AddItem
-          me={me}
-          onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); loadItems(); }}
-        />
+        <div className="modal" onClick={() => setShowAdd(false)}>
+          <div className="panel" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-head">
+              <div className="title">Add New Item</div>
+              <button className="x" onClick={() => setShowAdd(false)}>×</button>
+            </div>
+            <label className="lbl">Headline</label>
+            <input className="txt" value={newContent} onChange={(e) => setNewContent(e.target.value)} />
+            <div className="field">
+              <label>Customer impact <b>{ci === 0 ? "—" : ci}</b></label>
+              <input type="range" min="0" max="10" value={ci} onChange={(e) => setCi(Number(e.target.value))} />
+            </div>
+            <div className="field">
+              <label>Team energy <b>{te === 0 ? "—" : te}</b></label>
+              <input type="range" min="0" max="10" value={te} onChange={(e) => setTe(Number(e.target.value))} />
+            </div>
+            <div className="field">
+              <label>Frequency <b>{fr === 0 ? "—" : fr}</b></label>
+              <input type="range" min="0" max="10" value={fr} onChange={(e) => setFr(Number(e.target.value))} />
+            </div>
+            <div className="field">
+              <label>Ease <b>{ea === 0 ? "—" : ea}</b></label>
+              <input type="range" min="0" max="10" value={ea} onChange={(e) => setEa(Number(e.target.value))} />
+            </div>
+            <div className="actions">
+              <button className="ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+              <button className="primary" disabled={!newContent.trim() || ci < 1 || te < 1 || fr < 1 || ea < 1} onClick={handleAdd}>Save</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
