@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { API, postJSON } from "./logic";
 
 export default function LifecycleStages({ item, onUpdate }) {
@@ -20,6 +20,10 @@ export default function LifecycleStages({ item, onUpdate }) {
     { num: 9, name: "Share Story", description: "Story summary (auto-generated)", auto: true },
   ];
 
+  useEffect(() => {
+    console.log("Item data:", item);
+  }, [item]);
+
   async function saveStageNote(stageNum, fieldName) {
     const note = (notes[stageNum] || "").trim();
     if (!note || working) return;
@@ -28,8 +32,9 @@ export default function LifecycleStages({ item, onUpdate }) {
     try {
       const payload = {
         stage: stageNum + 1,
-        [fieldName]: note
+        note: note
       };
+      console.log("Saving:", payload);
       await postJSON(`${API}/items/${item.id}/stage`, payload);
       setNotes({ ...notes, [stageNum]: "" });
       await onUpdate();
@@ -56,6 +61,10 @@ export default function LifecycleStages({ item, onUpdate }) {
             const savedNote = s.field ? item[s.field] : null;
             const activeNote = notes[s.num] || "";
 
+            if (isComplete) {
+              console.log(`Stage ${s.num} (${s.name}):`, savedNote);
+            }
+
             return (
               <div
                 key={s.num}
@@ -68,7 +77,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                   {s.auto ? (
                     <div className="stage-auto">{s.description}</div>
                   ) : isComplete ? (
-                    <div className="stage-note">{savedNote || "✓ Completed"}</div>
+                    <div className="stage-note">{savedNote || "(No note saved)"}</div>
                   ) : isCurrent ? (
                     <>
                       <div className="stage-prompt">{s.prompt}</div>
