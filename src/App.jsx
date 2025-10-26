@@ -1,3 +1,4 @@
+import "./App.css";
 import { useEffect, useState } from "react";
 import { API, fetchJSON, createItem } from "./logic";
 import ItemDetail from "./ItemDetail";
