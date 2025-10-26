@@ -77,7 +77,29 @@ export default function LifecycleStages({ item, onUpdate }) {
                   {s.auto ? (
                     <div className="stage-auto">{s.description}</div>
                   ) : isComplete ? (
-                    <div className="stage-note">{savedNote || "(No note saved)"}</div>
+      <>
+  <div className="stage-prompt" style={{ fontSize: "0.9em", opacity: 0.7 }}>{s.prompt}</div>
+  {savedNote && (
+    <div className="stage-note" style={{ marginBottom: 8, fontStyle: "italic" }}>
+      Previous: {savedNote}
+    </div>
+  )}
+  <textarea
+    placeholder="Edit your note..."
+    value={activeNote || ""}
+    onChange={(e) => setNotes({ ...notes, [s.num]: e.target.value })}
+    disabled={working}
+    rows={3}
+  />
+  <button
+    className="stage-save-btn"
+    disabled={(!activeNote?.trim() || working)}
+    onClick={() => saveStageNote(s.num, s.field)}
+    style={{ marginTop: 8 }}
+  >
+    {working ? "Saving..." : "Update"}
+  </button>
+</>
                   ) : isCurrent ? (
                     <>
                       <div className="stage-prompt">{s.prompt}</div>
