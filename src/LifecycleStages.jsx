@@ -3,7 +3,25 @@ import { API, postJSON } from "./logic";
 
 export default function LifecycleStages({ item, onUpdate }) {
   const [expanded, setExpanded] = useState(false);
-  const [notes, setNotes] = useState({});
+  const [notes, setNotes] = useState(() => {
+  // Pre-populate notes with saved stage data
+  const initialNotes = {};
+  const stages = [
+    { num: 3, field: "stage_3_involve" },
+    { num: 4, field: "stage_4_choose" },
+    { num: 5, field: "stage_5_prepare" },
+    { num: 6, field: "stage_6_act" },
+    { num: 7, field: "stage_7_learn" },
+    { num: 8, field: "stage_8_recognise" },
+    { num: 9, field: "stage_9_share_story" }
+  ];
+  stages.forEach(s => {
+    if (item[s.field]) {
+      initialNotes[s.num] = item[s.field];
+    }
+  });
+  return initialNotes;
+});
   const [working, setWorking] = useState(false);
 
   const currentStage = Number(item.stage) || 1;
