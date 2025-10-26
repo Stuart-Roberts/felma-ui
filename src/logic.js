@@ -102,3 +102,14 @@ export function fmtDate(dateStr) {
     minute: "2-digit",
   });
 }
+
+export async function createItem(content, originator, ci, te, fr, ea) {
+  return postJSON(`${API}/items`, {
+    content,
+    originator_name: originator || "Anonymous",
+    customer_impact: ci,
+    team_energy: te,
+    frequency: fr,
+    ease: ea,
+  });
+}
