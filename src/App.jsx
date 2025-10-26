@@ -101,8 +101,8 @@ export default function App() {
     <div className="page">
       <div className="bar">
         <div className="left">
-          <div className="app">Felma</span>
-          <div className="org">St Michael's – Frideas</span>
+          <span className="app">Felma</span>
+          <span className="org">St Michael's – Frideas</span>
         </div>
         <div className="controls">
           <div className="who">
