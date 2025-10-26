@@ -20,16 +20,17 @@ export default function LifecycleStages({ item, onUpdate }) {
     { num: 9, name: "Share Story", description: "Story summary (auto-generated)", auto: true },
   ];
 
-  async function saveStageNote(stageNum) {
+  async function saveStageNote(stageNum, fieldName) {
     const note = (notes[stageNum] || "").trim();
     if (!note || working) return;
 
     setWorking(true);
     try {
-      await postJSON(`${API}/items/${item.id}/stage`, {
+      const payload = {
         stage: stageNum + 1,
-        note: note,
-      });
+        [fieldName]: note
+      };
+      await postJSON(`${API}/items/${item.id}/stage`, payload);
       setNotes({ ...notes, [stageNum]: "" });
       await onUpdate();
     } catch (e) {
@@ -81,7 +82,7 @@ export default function LifecycleStages({ item, onUpdate }) {
                       <button
                         className="stage-save-btn"
                         disabled={!activeNote.trim() || working}
-                        onClick={() => saveStageNote(s.num)}
+                        onClick={() => saveStageNote(s.num, s.field)}
                       >
                         {working ? "Saving..." : `Continue to ${stages[s.num]?.name || "Next"}`}
                       </button>
