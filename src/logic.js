@@ -103,7 +103,8 @@ export function fmtDate(dateStr) {
   });
 }
 
-export async function createItem(content, originator, ci, te, fr, ea) {
+// UPDATED: Now accepts org parameter
+export async function createItem(content, originator, ci, te, fr, ea, org) {
   return postJSON(`${API}/items`, {
     content,
     originator_name: originator || "Anonymous",
@@ -111,5 +112,6 @@ export async function createItem(content, originator, ci, te, fr, ea) {
     team_energy: te,
     frequency: fr,
     ease: ea,
+    org_id: org, // Pass org_id to backend
   });
 }
