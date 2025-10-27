@@ -140,6 +140,12 @@ export default function App() {
               </div>
               <div className="title">{item.content || item.transcript || "Untitled"}</div>
               <div className="date">{new Date(item.created_at).toLocaleDateString()}</div>
+              {item.stage && item.stage > 1 && (
+                <div className="lifecycle-bar">
+                  <div className="lifecycle-fill" style={{ width: `${((item.stage - 1) / 8) * 100}%` }} />
+                  <span className="lifecycle-text">{item.stage}/9</span>
+                </div>
+              )}
             </div>
           );
         })}
