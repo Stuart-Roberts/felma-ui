@@ -5,6 +5,7 @@ import ItemDetail from "./ItemDetail";
 
 // Organization definitions
 const ORGANIZATIONS = [
+  { id: "ALL", name: "🔍 All Organizations" },
   { id: "ST_MICHAELS", name: "St Michael's – Frideas" },
   { id: "G_PROJECT", name: "G Project - Frustrations → Ideas" },
   { id: "DEV_ONLY", name: "Dev Testing - Frustrations → Ideas" },
@@ -25,12 +26,12 @@ export default function App() {
   const [fr, setFr] = useState(0);
   const [ea, setEa] = useState(0);
   
-  // Organization state - default to ST_MICHAELS
+  // Organization state - default to ALL to see everything
   const [selectedOrg, setSelectedOrg] = useState(() => {
     try {
-      return localStorage.getItem("felma_org") || "ST_MICHAELS";
+      return localStorage.getItem("felma_org") || "ALL";
     } catch {
-      return "ST_MICHAELS";
+      return "ALL";
     }
   });
 
@@ -111,10 +112,13 @@ export default function App() {
   }
 
   // Get current org display name
-  const currentOrgName = ORGANIZATIONS.find(org => org.id === selectedOrg)?.name || "St Michael's – Frideas";
+  const currentOrgName = ORGANIZATIONS.find(org => org.id === selectedOrg)?.name || "🔍 All Organizations";
 
   // Filter items by organization first, then by mine/all
   const orgFiltered = items.filter(item => {
+    // If "ALL" is selected, show all items
+    if (selectedOrg === "ALL") return true;
+    
     // Filter by organization
     const itemOrg = item.org_id || "ST_MICHAELS"; // Default to ST_MICHAELS if no org_id
     return itemOrg === selectedOrg;
