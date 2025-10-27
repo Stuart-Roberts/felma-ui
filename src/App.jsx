@@ -3,6 +3,15 @@ import { useEffect, useState } from "react";
 import { API, fetchJSON, createItem } from "./logic";
 import ItemDetail from "./ItemDetail";
 
+// Organization definitions
+const ORGANIZATIONS = [
+  { id: "ST_MICHAELS", name: "St Michael's – Frideas" },
+  { id: "G_PROJECT", name: "G Project - Frustrations → Ideas" },
+  { id: "DEV_ONLY", name: "Dev Testing - Frustrations → Ideas" },
+  { id: "DOOR_CONTROLS", name: "Door Controls - Frustrations → Ideas" },
+  { id: "PILOT_2", name: "Pilot 2 - Frustrations → Ideas" },
+];
+
 export default function App() {
   const [items, setItems] = useState([]);
   const [me, setMe] = useState("");
@@ -15,8 +24,24 @@ export default function App() {
   const [te, setTe] = useState(0);
   const [fr, setFr] = useState(0);
   const [ea, setEa] = useState(0);
+  
+  // Organization state - default to ST_MICHAELS
+  const [selectedOrg, setSelectedOrg] = useState(() => {
+    try {
+      return localStorage.getItem("felma_org") || "ST_MICHAELS";
+    } catch {
+      return "ST_MICHAELS";
+    }
+  });
 
   useEffect(() => { loadItems(); }, []);
+  
+  // Save selected org to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("felma_org", selectedOrg);
+    } catch {}
+  }, [selectedOrg]);
 
   async function loadItems() {
     try {
@@ -43,7 +68,8 @@ export default function App() {
   async function handleAdd() {
     if (!newContent.trim() || ci < 1 || te < 1 || fr < 1 || ea < 1) return;
     try {
-      await createItem(newContent, me, ci, te, fr, ea);
+      // Pass selectedOrg as 7th parameter
+      await createItem(newContent, me, ci, te, fr, ea, selectedOrg);
       setShowAdd(false);
       setNewContent("");
       setCi(0); setTe(0); setFr(0); setEa(0);
@@ -84,8 +110,17 @@ export default function App() {
     return false;
   }
 
-  // Filter items
-  const filtered = items.filter(item => {
+  // Get current org display name
+  const currentOrgName = ORGANIZATIONS.find(org => org.id === selectedOrg)?.name || "St Michael's – Frideas";
+
+  // Filter items by organization first, then by mine/all
+  const orgFiltered = items.filter(item => {
+    // Filter by organization
+    const itemOrg = item.org_id || "ST_MICHAELS"; // Default to ST_MICHAELS if no org_id
+    return itemOrg === selectedOrg;
+  });
+
+  const filtered = orgFiltered.filter(item => {
     if (filter === "mine") return isMine(item);
     return true;
   });
@@ -102,9 +137,14 @@ export default function App() {
       <div className="bar">
         <div className="left">
           <span className="app">Felma</span>
-          <span className="org">St Michael's – Frideas</span>
+          <span className="org">{currentOrgName}</span>
         </div>
         <div className="controls">
+          <select className="view org-selector" value={selectedOrg} onChange={(e) => setSelectedOrg(e.target.value)}>
+            {ORGANIZATIONS.map(org => (
+              <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
           <div className="who">
             <span className="label">You:</span>
             <input className="whoinp" placeholder="Your name" value={me} onChange={(e) => setMe(e.target.value)} />
