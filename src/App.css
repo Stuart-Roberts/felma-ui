@@ -28,25 +28,22 @@ body {
 /* Main page layout */
 .page {
   min-height: 100vh;
-  padding-bottom: 40px;
 }
 
 .bar {
   background: rgba(0,0,0,0.2);
   border-bottom: 1px solid var(--line);
-  padding: 8px 20px;
+  padding: 10px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  flex-wrap: nowrap;
 }
 
 .left {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: nowrap;
+  gap: 16px;
 }
 
 .app {
@@ -65,7 +62,6 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: nowrap;
 }
 
 .who {
@@ -84,30 +80,29 @@ body {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   color: var(--text);
   font-size: 14px;
-  width: 120px;
+  width: 140px;
 }
 
 .view {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
-  min-width: 140px;
 }
 
 .btn {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -123,7 +118,7 @@ body {
 .grid {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px 20px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
