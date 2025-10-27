@@ -28,6 +28,8 @@ body {
 /* Main page layout */
 .page {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .bar {
@@ -38,7 +40,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  height: auto;
+  flex: 0 0 auto;
 }
 
 .left {
@@ -117,9 +119,11 @@ body {
 
 /* Grid of cards */
 .grid {
+  flex: 1;
   max-width: 1200px;
   margin: 0 auto;
   padding: 16px 20px;
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
