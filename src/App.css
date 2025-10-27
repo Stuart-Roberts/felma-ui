@@ -11,6 +11,7 @@
   --berry: #C2185B;
   --blue: #1E88E5;
   --teal: #00BCD4;
+  --cache-bust-v2: 0;
 }
 
 * {
