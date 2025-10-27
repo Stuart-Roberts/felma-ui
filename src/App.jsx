@@ -174,6 +174,16 @@ export default function App() {
           const owner = displayName(item.originator_name || item.user_id);
           const mine = isMine(item);
           
+          // Get headline and content
+          const headline = item.headline || item.content || item.transcript || "Untitled";
+          const content = item.content || item.transcript || "";
+          
+          // Create preview: max 2 lines, truncate with ...
+          const previewLength = 80;
+          const preview = content.length > previewLength 
+            ? content.substring(0, previewLength) + "..." 
+            : content;
+          
           return (
             <div key={item.id} className="card" onClick={() => setOpenItem(item)}>
               <div className="pills">
@@ -182,7 +192,10 @@ export default function App() {
                 {isLeader && <span className="pill leader">Leader to Unblock</span>}
                 <span className={`pill owner ${mine ? "berry" : ""}`}>{owner}</span>
               </div>
-              <div className="title">{item.content || item.transcript || "Untitled"}</div>
+              <div className="title">{headline}</div>
+              {item.headline && content && (
+                <div className="preview">{preview}</div>
+              )}
               <div className="date">{new Date(item.created_at).toLocaleDateString()}</div>
               {item.stage && item.stage > 1 && (
                 <div className="lifecycle-bar">
