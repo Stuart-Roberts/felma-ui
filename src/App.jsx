@@ -170,7 +170,7 @@ export default function App() {
         {sorted.map((item) => {
           const rank = item.priority_rank || item.rank || 0;
           const tier = item.action_tier || "⚪ Park for later";
-          const isLeader = item.leader_to_unblock;
+          const isLeader = item.leader_to_assist;
           const owner = displayName(item.originator_name || item.user_id);
           const mine = isMine(item);
           
